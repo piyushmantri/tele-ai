@@ -1,0 +1,18 @@
+{
+  "name": "tele",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
+    "tg-login": "pnpm --filter @tele/server tg-login",
+    "dev:server": "pnpm --filter @tele/server dev",
+    "dev:web": "pnpm --filter @tele/web dev",
+    "build": "pnpm --filter @tele/shared build && pnpm --filter @tele/server build && pnpm --filter @tele/web build",
+    "start": "pnpm --filter @tele/server start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "typescript": "^5.6.3"
+  }
+}
