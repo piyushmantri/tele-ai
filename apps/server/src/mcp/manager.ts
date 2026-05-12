@@ -4,6 +4,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { MCPServer } from "@tele/shared";
 import { listMCPServers } from "../db/repos/mcp.js";
 import { logger } from "../util/logger.js";
+import { incCounter } from "../util/metrics.js";
 import type { ToolDef } from "../ai/tools/index.js";
 
 interface ActiveClient {
@@ -89,6 +90,7 @@ export async function getMCPToolsAsync(): Promise<ToolDef[]> {
         });
       }
     } catch (err) {
+      incCounter("mcp.list_tools_failed." + server.name);
       logger.warn("mcp listTools failed", { server: server.name, err: err instanceof Error ? err.message : String(err) });
     }
   }

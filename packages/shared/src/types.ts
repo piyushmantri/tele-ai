@@ -4,11 +4,13 @@ export interface Chat {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
-  chat_type: "private" | "group" | "channel";
+  chat_type: "private" | "group" | "channel" | "bot";
   is_blocked: boolean;
   unread_count: number;
   last_message_at: string | null;
   created_at: string;
+  ai_context: string | null;
+  slash_only: boolean;
 }
 
 export interface Message {
@@ -25,6 +27,7 @@ export interface Settings {
   auto_reply_enabled: boolean;
   persona: string;
   user_name: string;
+  ai_username: string;
   temperature: number;
   gemini_model: string;
   workspace_root: string;
@@ -99,6 +102,7 @@ export type WsEvent =
   | { type: "reminder:fired"; payload: { reminder: Reminder } }
   | { type: "tool:invoked"; payload: { entry: ToolAuditEntry } }
   | { type: "chat:updated"; payload: { chat: Chat } }
+  | { type: "chat:deleted"; payload: { chat_id: string } }
   | { type: "kanban:task_changed"; payload: { task: KanbanTask; deleted?: boolean } }
   | { type: "kanban:comment_added"; payload: { comment: KanbanComment } };
 
@@ -205,7 +209,145 @@ export interface LoginBody {
   password: string;
 }
 
+export interface TelegramBotConfig {
+  id: string;
+  token: string;
+  system_prompt: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface UpdateTelegramBotConfigBody {
+  token?: string;
+  system_prompt?: string;
+  enabled?: boolean;
+}
+
 export interface HealthResponse {
   telegram_connected: boolean;
   uptime_s: number;
+}
+
+export interface HistogramSnapshot {
+  count: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+  mean: number;
+}
+
+export interface ErrorBucket {
+  level: "warn" | "error";
+  source: string;
+  message: string;
+  count: number;
+  last_seen: string;
+}
+
+export interface MetricsResponse {
+  generated_at: string;
+  server: {
+    uptime_s: number;
+    ready: boolean;
+    telegram_connected: boolean;
+    bot_connected: boolean;
+    db_ping_ms: number | null;
+    last_migration: { filename: string; applied_at: string } | null;
+    snapshot_at: string | null;
+  };
+  counters: Record<string, number>;
+  gauges: Record<string, number>;
+  histograms: Record<string, HistogramSnapshot>;
+  errors_recent: ErrorBucket[];
+  telegram: {
+    chats_total: number;
+    chats_by_type: Record<"private" | "group" | "channel" | "bot", number>;
+    chats_blocked: number;
+    chats_active_24h: number;
+    messages_total: number;
+    messages_in_1h: number;
+    messages_in_24h: number;
+    messages_in_7d: number;
+    messages_out_1h: number;
+    messages_out_24h: number;
+    messages_out_7d: number;
+    messages_by_source_24h: Record<"user" | "ai" | "manual", number>;
+    messages_hourly_24h: Array<{ hour: string; in: number; out: number }>;
+  };
+  bot: {
+    configured: boolean;
+    enabled: boolean;
+    pending_choices_outstanding: number;
+    pending_choices_consumed: number;
+    pending_choices_expired: number;
+    pending_choices_total: number;
+  };
+  ai: {
+    tool_calls_total: number;
+    tool_calls_24h: number;
+    tool_calls_24h_by_tool: Array<{ tool_name: string; ok: number; err: number }>;
+    // Mirror of counters["gemini.cost_micro_usd"] — provided here so the dashboard
+    // selector is one path. Persisted via the existing counter-restore.
+    cost_micro_usd_total: number;
+    // Flux-computed delta of the cost counter over the last 24h.
+    // null when Influx is unconfigured OR the query failed.
+    cost_micro_usd_24h: number | null;
+    pricing: {
+      model_id: string;
+      input_per_1m_usd: number | null;
+      output_per_1m_usd: number | null;
+      fetched_at: string | null;
+      source_url: string | null;
+      is_override: boolean;
+    };
+  };
+  mcp: {
+    total: number;
+    enabled: number;
+    connected: number;
+    servers: Array<{ name: string; enabled: boolean; connected: boolean }>;
+  };
+  scheduler: {
+    reminders_total: number;
+    reminders_active: number;
+    reminders_fired: number;
+    jobs_scheduled_in_memory: number;
+  };
+  slash: {
+    total: number;
+    enabled: number;
+  };
+  skills: {
+    total: number;
+    enabled: number;
+  };
+  kanban: {
+    todo: number;
+    in_progress: number;
+    done: number;
+    total: number;
+    comments_total: number;
+  };
+  polls: {
+    total: number;
+  };
+  rules: {
+    allow: number;
+    block: number;
+  };
+  db: {
+    table_rows: Record<string, number>;
+  };
+}
+
+export interface MetricsTimeseriesResponse {
+  metric: string;
+  points: Array<{ t: string; value: number }>;
+}
+
+export interface UpdatePricingOverrideBody {
+  model_id?: string;
+  override_input_per_1m_usd: number | null;
+  override_output_per_1m_usd: number | null;
 }

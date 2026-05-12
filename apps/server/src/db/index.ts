@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { config } from "../config.js";
 import { logger } from "../util/logger.js";
+import { incCounter } from "../util/metrics.js";
 
 export const sql: NeonQueryFunction<false, false> = neon(config.DATABASE_URL);
 
@@ -25,6 +26,7 @@ export async function query<T = Record<string, unknown>>(
       lastErr = err;
       if (!isTransientError(err) || attempt === MAX_RETRIES - 1) throw err;
       const delay = BASE_DELAY_MS * 2 ** attempt;
+      incCounter("db.transient_retry");
       logger.warn("db transient error, retrying", { attempt: attempt + 1, delay_ms: delay, err: err instanceof Error ? err.message : String(err) });
       await new Promise((r) => setTimeout(r, delay));
     }

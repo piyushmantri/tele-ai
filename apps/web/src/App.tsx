@@ -14,6 +14,8 @@ import MCPServers from "./pages/MCPServers";
 import Kanban from "./pages/Kanban";
 import Skills from "./pages/Skills";
 import SlashCommands from "./pages/SlashCommands";
+import Bots from "./pages/Bots";
+import Metrics from "./pages/Metrics";
 
 export default function App() {
   const loc = useLocation();
@@ -55,6 +57,8 @@ export default function App() {
             <Route path="/mcp" element={<MCPServers />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/slash-commands" element={<SlashCommands />} />
+            <Route path="/bots" element={<Bots />} />
+            <Route path="/metrics" element={<Metrics />} />
           </Routes>
         </div>
       </div>

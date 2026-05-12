@@ -8,6 +8,7 @@ const DEFAULTS: Settings = {
   persona:
     "You are the user's personal AI assistant operating their Telegram account. Reply briefly, in the user's casual tone, never mention being an AI unless directly asked.",
   user_name: "User",
+  ai_username: "woody",
   temperature: 0.7,
   gemini_model: "gemini-3-flash-preview",
   workspace_root: "/Users/piyush.mantri/spaps/tele/workspace",

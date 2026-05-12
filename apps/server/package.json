@@ -15,6 +15,7 @@
     "@fastify/static": "^8.0.1",
     "@fastify/websocket": "^11.0.1",
     "@google/generative-ai": "^0.21.0",
+    "@influxdata/influxdb-client": "^1.35.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^0.10.1",
     "@tele/shared": "workspace:*",

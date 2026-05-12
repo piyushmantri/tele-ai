@@ -1,8 +1,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eventBus } from "../util/eventBus.js";
 import { logger } from "../util/logger.js";
+import { incCounter, setGauge } from "../util/metrics.js";
 
 const HEARTBEAT_MS = 30_000;
+
+let subscriberCount = 0;
 
 export function registerWs(app: FastifyInstance, authCookieName: string, expectedToken: string) {
   app.get("/ws", { websocket: true }, (socket, req: FastifyRequest) => {
@@ -16,9 +19,13 @@ export function registerWs(app: FastifyInstance, authCookieName: string, expecte
       try {
         socket.send(JSON.stringify(event));
       } catch (err) {
+        incCounter("ws.send_error");
         logger.warn("ws send failed", { err: err instanceof Error ? err.message : String(err) });
       }
     });
+
+    subscriberCount++;
+    setGauge("ws.subscribers", subscriberCount);
 
     const heartbeat = setInterval(() => {
       try {
@@ -31,6 +38,8 @@ export function registerWs(app: FastifyInstance, authCookieName: string, expecte
     socket.on("close", () => {
       clearInterval(heartbeat);
       unsubscribe();
+      subscriberCount = Math.max(0, subscriberCount - 1);
+      setGauge("ws.subscribers", subscriberCount);
     });
   });
 }

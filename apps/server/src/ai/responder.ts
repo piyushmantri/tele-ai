@@ -8,7 +8,9 @@ import { buildSystemInstruction } from "./systemPrompt.js";
 import { buildTools, runToolLoop } from "./tools/index.js";
 import { sendReply } from "../telegram/sender.js";
 import { sendReaction } from "../telegram/sender.js";
+import type { ReplyAdapter } from "../telegram/botSender.js";
 import { logger } from "../util/logger.js";
+import { incCounter } from "../util/metrics.js";
 
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 
@@ -16,7 +18,12 @@ export async function generateAndReply(
   chat: Chat,
   latestUserText: string,
   incomingTgMsgId?: number,
-  opts?: { systemInstructionOverride?: string },
+  opts?: {
+    systemInstructionOverride?: string;
+    replyAdapter?: ReplyAdapter;
+    isBot?: boolean;
+    botToken?: string;
+  },
 ): Promise<void> {
   const settings = await getSettings();
   const history = await getRecentForAi(chat.id, 20);
@@ -24,8 +31,16 @@ export async function generateAndReply(
 
   const contents: Content[] = history.map((m) => {
     let text = m.text;
-    if (m.direction === "out" && prefix && text.startsWith(prefix)) {
-      text = text.slice(prefix.length).trimStart();
+    if (m.direction === "out") {
+      // Strip any leading prefix marker (current bot_prefix OR legacy bracket tags
+      // like [Woody] OR leading emoji prefix). Past messages may have been saved
+      // with a different prefix; without stripping them the AI mimics the stale
+      // prefix in new replies.
+      let prev: string;
+      do {
+        prev = text;
+        text = text.replace(/^(\[[^\]]+\]|\p{Extended_Pictographic}+)\s+/u, "");
+      } while (text !== prev);
     }
     return { role: m.direction === "in" ? "user" : "model", parts: [{ text }] };
   });
@@ -34,14 +49,22 @@ export async function generateAndReply(
     contents.push({ role: "user", parts: [{ text: latestUserText }] });
   }
 
-  const { tools, registry, summary } = await buildTools(chat.id, chat.tg_chat_id);
-  const systemInstruction =
+  const { tools, registry, summary } = await buildTools(chat.id, chat.tg_chat_id, {
+    isBot: opts?.isBot,
+    botToken: opts?.botToken,
+    chatType: chat.chat_type,
+  });
+  const baseInstruction =
     opts?.systemInstructionOverride ??
     buildSystemInstruction({
       chat,
       settings,
       toolsSummary: summary,
     });
+  const ctx = chat.ai_context?.trim();
+  const systemInstruction = ctx
+    ? `${baseInstruction}\n\n--- Chat-specific context ---\n${ctx}`
+    : baseInstruction;
 
   const model = genAI.getGenerativeModel({
     model: settings.gemini_model || config.GEMINI_MODEL,
@@ -61,17 +84,39 @@ export async function generateAndReply(
     text = await runToolLoop({ model, contents, registry, chatId: chat.id });
     logger.info("gemini replied", { chat: chat.id, length: text.length });
   } catch (err) {
-    logger.error("ai loop failed", {
-      chat: chat.id,
-      err: err instanceof Error ? err.message : String(err),
-    });
+    incCounter("responder.error");
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error("ai loop failed", { chat: chat.id, err: msg });
+    // Communicate the failure to the user so they aren't left hanging.
+    const errText = `AI failed: ${msg.slice(0, 200)}`;
+    try {
+      if (opts?.replyAdapter) {
+        await opts.replyAdapter.sendText(errText);
+        await opts.replyAdapter.persistOutbound(errText, null);
+      } else {
+        await sendReply(chat, errText, "manual");
+      }
+    } catch (notifyErr) {
+      logger.warn("failed to notify user of ai error", {
+        err: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+      });
+    }
     return;
   }
 
-  if (!text) return;
-  const finalText = prefix ? `${prefix} ${text}` : text;
-  await sendReply(chat, finalText, "ai");
-  if (settings.reaction_done && incomingTgMsgId) {
-    await sendReaction(chat.tg_chat_id, incomingTgMsgId, settings.reaction_done);
+  if (!text) {
+    incCounter("responder.empty_reply_skipped");
+    return;
   }
+  const finalText = prefix && !opts?.replyAdapter ? `${prefix} ${text}` : text;
+  if (opts?.replyAdapter) {
+    const { message_id } = await opts.replyAdapter.sendText(finalText);
+    await opts.replyAdapter.persistOutbound(finalText, message_id);
+  } else {
+    await sendReply(chat, finalText, "ai");
+    if (settings.reaction_done && incomingTgMsgId) {
+      await sendReaction(chat.tg_chat_id, incomingTgMsgId, settings.reaction_done);
+    }
+  }
+  incCounter("responder.reply_sent");
 }

@@ -109,6 +109,19 @@ export default function Settings() {
         </div>
 
         <div>
+          <label className="block text-sm text-slate-400">
+            AI username{" "}
+            <span className="text-slate-500 text-xs">(used in <code>/unblock &lt;ai_username&gt;</code> to unblock blocked chats; case-insensitive; default: woody)</span>
+          </label>
+          <input
+            value={draft.ai_username}
+            onChange={(e) => set("ai_username", e.target.value)}
+            placeholder="woody"
+            className="mt-1 w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-mono"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm text-slate-400">Reply delay (ms)</label>
           <input
             type="number"
