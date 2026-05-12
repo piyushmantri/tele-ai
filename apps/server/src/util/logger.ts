@@ -3,9 +3,10 @@ import { markError } from "./metrics.js";
 
 type Level = "debug" | "info" | "warn" | "error";
 
-const LOG_FILE = "/tmp/spaps-server.log";
+const LOG_FILE = process.env.LOG_FILE ?? null;
 
 function writeFile(line: string): void {
+  if (!LOG_FILE) return;
   try {
     appendFileSync(LOG_FILE, line + "\n");
   } catch {

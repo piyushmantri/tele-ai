@@ -10,11 +10,13 @@ import { handleBotMessage, handleBotCallback } from "../ai/botEventHandler.js";
 import { startKeepalive, stopKeepalive } from "./keepalive.js";
 import { getTelegramBotConfig } from "../db/repos/telegramBotConfig.js";
 
-const BOT_SESSION_FILE = "data/bot-session.txt";
+const BOT_SESSION_FILE = process.env.BOT_SESSION_FILE ?? "data/bot-session.txt";
 
 let _botClient: TelegramClient | null = null;
 
 async function loadBotSession(): Promise<string> {
+  const envSession = process.env.BOT_SESSION_STRING?.trim();
+  if (envSession) return envSession;
   try {
     return (await readFile(BOT_SESSION_FILE, "utf8")).trim();
   } catch {

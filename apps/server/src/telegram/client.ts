@@ -10,6 +10,8 @@ import { startKeepalive } from "./keepalive.js";
 let _client: TelegramClient | null = null;
 
 async function loadSession(): Promise<string> {
+  const envSession = process.env.SESSION_STRING?.trim();
+  if (envSession) return envSession;
   try {
     return (await readFile(config.SESSION_FILE, "utf8")).trim();
   } catch {

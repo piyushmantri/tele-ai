@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+data
+tasks
+.claude
+*.log
+apps/web/.vite
+packages/shared/tsconfig.tsbuildinfo
