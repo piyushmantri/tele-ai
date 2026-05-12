@@ -4,3 +4,4 @@ dist
 data/
 *.session
 .DS_Store
+*.tsbuildinfo

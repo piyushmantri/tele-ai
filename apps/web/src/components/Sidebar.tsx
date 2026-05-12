@@ -8,6 +8,8 @@ const items = [
   { to: "/mcp", label: "MCP Servers" },
   { to: "/skills", label: "Skills" },
   { to: "/slash-commands", label: "Commands" },
+  { to: "/bots", label: "Bots" },
+  { to: "/metrics", label: "Observability" },
   { to: "/settings", label: "Settings" },
 ];
 

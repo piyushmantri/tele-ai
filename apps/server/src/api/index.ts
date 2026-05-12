@@ -18,6 +18,8 @@ import { registerMCPRoutes } from "./routes/mcp.js";
 import { registerKanbanRoutes } from "./routes/kanban.js";
 import { registerSkillsRoutes } from "./routes/skills.js";
 import { registerSlashCommandRoutes } from "./routes/slashCommands.js";
+import { registerTelegramBotRoutes } from "./routes/telegramBot.js";
+import { registerMetricsRoutes } from "./routes/metrics.js";
 import { registerWs } from "./ws.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +58,8 @@ export async function startApi(_client: TelegramClient): Promise<FastifyInstance
   await registerKanbanRoutes(app);
   await registerSkillsRoutes(app);
   await registerSlashCommandRoutes(app);
+  await registerTelegramBotRoutes(app);
+  await registerMetricsRoutes(app);
 
   registerWs(app, AUTH_COOKIE, getAuthToken());
 

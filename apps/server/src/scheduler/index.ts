@@ -11,6 +11,7 @@ import { getChatById } from "../db/repos/chats.js";
 import { sendReply } from "../telegram/sender.js";
 import { eventBus } from "../util/eventBus.js";
 import { logger } from "../util/logger.js";
+import { incCounter } from "../util/metrics.js";
 
 interface Job {
   cron?: cron.ScheduledTask;
@@ -36,7 +37,9 @@ async function fire(reminder: Reminder, oneShot: boolean): Promise<void> {
   try {
     await sendReply(chat, reminder.message, "ai");
     eventBus.emit({ type: "reminder:fired", payload: { reminder } });
+    incCounter("scheduler.fired.ok");
   } catch (err) {
+    incCounter("scheduler.fired.err");
     logger.error("reminder send failed", {
       id: reminder.id,
       err: err instanceof Error ? err.message : String(err),
@@ -100,4 +103,8 @@ export async function startScheduler(_client: TelegramClient): Promise<void> {
     scheduleReminder(r);
   }
   logger.info("scheduler ready", { active: reminders.length });
+}
+
+export function getActiveJobCount(): number {
+  return jobs.size;
 }

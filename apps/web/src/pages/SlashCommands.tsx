@@ -25,6 +25,39 @@ const PLACEHOLDERS: Record<SlashCommandType, string> = {
   noop: "-",
 };
 
+interface BuiltinCommand {
+  name: string;
+  description: string;
+}
+
+const BUILTIN_COMMANDS: BuiltinCommand[] = [
+  {
+    name: "delete",
+    description:
+      "Deletes the current chat from the application (cascades to messages, polls, pending choices). Instant — no confirmation.",
+  },
+  {
+    name: "block",
+    description:
+      "Blocks the current chat. Subsequent messages are dropped until unblocked. Instant.",
+  },
+  {
+    name: "unblock <ai_username>",
+    description:
+      "Unblocks the current chat. Username must match Settings → AI username (default: woody). Case-insensitive. Wrong username silently ignored to avoid leaking the gating mechanism.",
+  },
+  {
+    name: "context",
+    description:
+      "Manage per-chat AI context (appended to the system instruction). /context shows current; /context <text> sets; /context clear removes.",
+  },
+  {
+    name: "slash-only on|off",
+    description:
+      "Toggle slash-only mode for the current chat. When on, plain-text messages are silently dropped — only slash commands are processed.",
+  },
+];
+
 export default function SlashCommands() {
   const qc = useQueryClient();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -201,8 +234,16 @@ export default function SlashCommands() {
         </div>
       )}
 
-      <div className="max-w-4xl rounded border border-slate-800 bg-slate-900">
-        <table className="w-full text-sm">
+      <div className="max-w-4xl overflow-hidden rounded border border-slate-800 bg-slate-900">
+        <table className="w-full table-fixed text-sm">
+          <colgroup>
+            <col className="w-32" />
+            <col />
+            <col className="w-24" />
+            <col className="w-64" />
+            <col className="w-20" />
+            <col className="w-32" />
+          </colgroup>
           <thead>
             <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
               <th className="px-4 py-2">Name</th>
@@ -299,8 +340,8 @@ export default function SlashCommands() {
                 </tr>
               ) : (
                 <tr key={c.id} className="border-b border-slate-800 last:border-b-0">
-                  <td className="px-4 py-2 font-mono">/{c.name}</td>
-                  <td className="max-w-xs truncate px-4 py-2 text-xs text-slate-400">
+                  <td className="truncate px-4 py-2 font-mono">/{c.name}</td>
+                  <td className="truncate px-4 py-2 text-xs text-slate-400" title={c.description}>
                     {c.description || "—"}
                   </td>
                   <td className="px-4 py-2">
@@ -309,7 +350,7 @@ export default function SlashCommands() {
                     </span>
                   </td>
                   <td
-                    className="max-w-xs truncate px-4 py-2 font-mono text-xs text-slate-400"
+                    className="truncate px-4 py-2 font-mono text-xs text-slate-400"
                     title={c.action}
                   >
                     {c.action}
@@ -326,7 +367,7 @@ export default function SlashCommands() {
                       {c.enabled ? "enabled" : "disabled"}
                     </button>
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="whitespace-nowrap px-4 py-2 text-right">
                     <button
                       onClick={() => startEdit(c)}
                       className="mr-3 text-xs text-slate-400 hover:text-slate-200"
@@ -352,6 +393,40 @@ export default function SlashCommands() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-8 max-w-4xl">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          System commands
+        </h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Built into the application. Always enabled. Cannot be edited or removed from the
+          dashboard.
+        </p>
+        <div className="rounded border border-slate-800 bg-slate-900">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+                <th className="px-4 py-2">Name</th>
+                <th className="px-4 py-2">Description</th>
+                <th className="px-4 py-2">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BUILTIN_COMMANDS.map((b) => (
+                <tr key={b.name} className="border-b border-slate-800 last:border-b-0">
+                  <td className="px-4 py-2 font-mono">/{b.name}</td>
+                  <td className="px-4 py-2 text-xs text-slate-400">{b.description}</td>
+                  <td className="px-4 py-2">
+                    <span className="rounded bg-amber-900/40 px-2 py-0.5 font-mono text-xs text-amber-200">
+                      built-in
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

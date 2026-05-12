@@ -27,8 +27,10 @@ export async function runMigrations(): Promise<void> {
     logger.info("applying migration", { file });
     const text = await readFile(join(MIGRATIONS_DIR, file), "utf8");
     // Run each non-empty statement individually (Neon serverless has no sql.unsafe).
+    // Strip `--` line comments before splitting so semicolons inside comments don't crash.
     // All DDL uses IF NOT EXISTS so re-runs are safe.
     const statements = text
+      .replace(/--[^\n]*/g, "")
       .split(";")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);

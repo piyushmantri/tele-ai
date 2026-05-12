@@ -25,6 +25,10 @@ export default function Sessions() {
   useWsEvent("chat:updated", () => {
     qc.invalidateQueries({ queryKey: qk.chats });
   });
+  useWsEvent("chat:deleted", (e) => {
+    qc.invalidateQueries({ queryKey: qk.chats });
+    if (e.payload.chat_id === selectedId) setSelectedId(null);
+  });
 
   const chats = q.data?.chats ?? [];
   const selected = chats.find((c) => c.id === selectedId) ?? null;

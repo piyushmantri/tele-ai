@@ -7,6 +7,7 @@ const settingsSchema = z
     auto_reply_enabled: z.boolean(),
     persona: z.string(),
     user_name: z.string(),
+    ai_username: z.string().min(1),
     temperature: z.number().min(0).max(2),
     gemini_model: z.string(),
     workspace_root: z.string(),

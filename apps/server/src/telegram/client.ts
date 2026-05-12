@@ -5,6 +5,7 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { config } from "../config.js";
 import { logger } from "../util/logger.js";
+import { startKeepalive } from "./keepalive.js";
 
 let _client: TelegramClient | null = null;
 
@@ -33,11 +34,23 @@ function prompt(label: string): () => Promise<string> {
   };
 }
 
-export async function startTelegram(): Promise<TelegramClient> {
+export async function startTelegram(restartCb?: () => Promise<void>): Promise<TelegramClient> {
+  // Idempotent: if a previous client is still around (watchdog restart path),
+  // tear it down before constructing a fresh one.
+  if (_client) {
+    try {
+      await _client.disconnect();
+    } catch {
+      // ignore — previous client may already be dead
+    }
+    _client = null;
+  }
   const sessionStr = await loadSession();
   const session = new StringSession(sessionStr);
   const client = new TelegramClient(session, config.TG_API_ID, config.TG_API_HASH, {
-    connectionRetries: 5,
+    connectionRetries: 20,
+    autoReconnect: true,
+    retryDelay: 2000,
   });
 
   await client.start({
@@ -55,6 +68,7 @@ export async function startTelegram(): Promise<TelegramClient> {
 
   logger.info("Telegram client ready");
   _client = client;
+  startKeepalive("user", () => _client, restartCb);
   return client;
 }
 

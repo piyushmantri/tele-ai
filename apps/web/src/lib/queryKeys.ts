@@ -11,5 +11,7 @@ export const qk = {
   kanbanTask: (id: string) => ["kanban", id] as const,
   skills: ["skills"] as const,
   slashCommands: ["slashCommands"] as const,
+  telegramBot: ["telegramBot"] as const,
+  metrics: ["metrics"] as const,
 };
 

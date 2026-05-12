@@ -7,6 +7,7 @@ import { bumpChatActivity, getChatById } from "../db/repos/chats.js";
 import { storePoll } from "../db/repos/polls.js";
 import { eventBus } from "../util/eventBus.js";
 import { logger } from "../util/logger.js";
+import { incCounter } from "../util/metrics.js";
 
 export async function sendReaction(
   tgChatId: string,
@@ -23,7 +24,9 @@ export async function sendReaction(
         reaction: [new Api.ReactionEmoji({ emoticon })],
       }),
     );
+    incCounter("sender.reaction.ok");
   } catch (err) {
+    incCounter("sender.reaction.err");
     logger.warn("sendReaction failed", { err: err instanceof Error ? err.message : String(err) });
   }
 }
@@ -40,6 +43,7 @@ export async function sendReply(
     const sent = await client.sendMessage(peer, { message: text });
     tgMessageId = sent.id != null ? String(sent.id) : null;
   } catch (err) {
+    incCounter("sender.message.err");
     logger.error("sendMessage failed", {
       chat: chat.id,
       err: err instanceof Error ? err.message : String(err),
@@ -57,6 +61,7 @@ export async function sendReply(
   const updated = (await getChatById(chat.id)) ?? chat;
   await bumpChatActivity(chat.id, new Date());
   eventBus.emit({ type: "message:sent", payload: { chat: updated, message } });
+  incCounter("sender.message.ok");
 }
 
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
@@ -91,6 +96,7 @@ export async function sendFile(
     tgMessageId = sent.id != null ? String(sent.id) : null;
     logger.info("sendFile ok", { chat: chat.id, file: fileName, forceDocument });
   } catch (err) {
+    incCounter("sender.file.err");
     logger.error("sendFile failed", {
       chat: chat.id,
       file: fileName,
@@ -111,6 +117,7 @@ export async function sendFile(
   const updated = (await getChatById(chat.id)) ?? chat;
   await bumpChatActivity(chat.id, new Date());
   eventBus.emit({ type: "message:sent", payload: { chat: updated, message } });
+  incCounter("sender.file.ok");
 }
 
 export interface SendPollOptions {
@@ -183,6 +190,7 @@ export async function sendPoll(
     tgMsgId = extractMsgId(result);
     logger.info("sendPoll ok", { chat: chat.id, question, options: options.length, quiz: isQuiz, tgMsgId });
   } catch (err) {
+    incCounter("sender.poll.err");
     logger.error("sendPoll failed", {
       chat: chat.id,
       err: err instanceof Error ? err.message : String(err),
@@ -211,5 +219,6 @@ export async function sendPoll(
   const updated = (await getChatById(chat.id)) ?? chat;
   await bumpChatActivity(chat.id, new Date());
   eventBus.emit({ type: "message:sent", payload: { chat: updated, message } });
+  incCounter("sender.poll.ok");
 }
 
