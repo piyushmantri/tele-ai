@@ -244,6 +244,11 @@ services:
       PORT: 3000
       WORKSPACE_ROOT: /data/workspace
       SESSION_FILE: /data/session.txt
+      INFLUXDB_URL: ${INFLUXDB_URL:-}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-}
+      INFLUXDB_VERSION: ${INFLUXDB_VERSION:-}
     volumes:
       - tele_data:/data
       - tele_data:/app/data
