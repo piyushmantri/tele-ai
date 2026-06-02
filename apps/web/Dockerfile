@@ -2,13 +2,17 @@ ARG PNPM_VERSION=10.33.0
 FROM node:20-alpine AS build
 ARG PNPM_VERSION
 WORKDIR /app
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV npm_config_strict_ssl=false
 RUN npm i -g pnpm@${PNPM_VERSION}
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/ packages/
 COPY vendor/ vendor/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
-RUN pnpm install --frozen-lockfile
+RUN npm config set registry https://registry.npmjs.org/ && \
+    pnpm config set registry https://registry.npmjs.org/ && \
+    pnpm install --no-frozen-lockfile
 COPY apps/web/ apps/web/
 RUN pnpm --filter @tele/shared build && pnpm --filter @tele/web build
 
