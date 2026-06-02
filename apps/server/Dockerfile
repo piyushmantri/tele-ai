@@ -35,4 +35,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=60s --retries=12 \
   CMD curl -fsS http://localhost:3000/api/health || exit 1
 ENTRYPOINT ["/sbin/tini","--"]
-CMD ["node","dist/index.js"]
+CMD ["node","--import","tsx","dist/index.js"]
