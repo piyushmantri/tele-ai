@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { MetricsResponse, MetricsTimeseriesResponse } from "@tele/shared";
+import type {
+  AppMetricsDetail,
+  ApplicationMetricSummary,
+  Application,
+  MetricsResponse,
+  MetricsTimeseriesResponse,
+} from "@tele/shared";
 import { sql } from "../../db/index.js";
 import {
   getCounters,
@@ -22,6 +28,14 @@ import { getActiveServers } from "../../mcp/manager.js";
 import { getActiveJobCount } from "../../scheduler/index.js";
 import { getTelegramBotConfig } from "../../db/repos/telegramBotConfig.js";
 import { listMCPServers } from "../../db/repos/mcp.js";
+import {
+  listApplications,
+  getApplicationBySlug,
+} from "../../db/repos/applications.js";
+import {
+  getAppTimeseries,
+  getAppTimeseriesNames,
+} from "../../ai/applicationMetrics.js";
 import { logger } from "../../util/logger.js";
 import { getPricingMeta, loadPricingFromDb, refreshPricing } from "../../ai/pricing.js";
 import { setOverride } from "../../db/repos/modelPricing.js";
@@ -79,6 +93,85 @@ function buildHourlyBuckets(
   return buckets;
 }
 
+function buildAppMetricSummary(
+  app: Application,
+  counters: Record<string, number>,
+  histograms: Record<string, ReturnType<typeof getHistograms>[string]>,
+): ApplicationMetricSummary {
+  const slug = app.slug;
+  const slashPrefix = `app.${slug}.slash.`;
+  const customPrefix = `app.${slug}.custom.`;
+  const callOkKey = `app.${slug}.call.ok`;
+  const callErrKey = `app.${slug}.call.err`;
+  const durationKey = `app.${slug}.duration_ms`;
+
+  const calls_ok = counters[callOkKey] ?? 0;
+  const calls_err = counters[callErrKey] ?? 0;
+
+  const byCmd = new Map<string, { ok: number; err: number }>();
+  const custom_counters: Record<string, number> = {};
+  for (const [key, n] of Object.entries(counters)) {
+    if (key.startsWith(slashPrefix)) {
+      const tail = key.slice(slashPrefix.length).split(".");
+      if (tail.length !== 2) continue;
+      const [cmd, status] = tail;
+      if (!cmd || !status) continue;
+      const slot = byCmd.get(cmd) ?? { ok: 0, err: 0 };
+      if (status === "ok") slot.ok = n;
+      else if (status === "err") slot.err = n;
+      byCmd.set(cmd, slot);
+      continue;
+    }
+    if (key.startsWith(customPrefix)) {
+      const name = key.slice(customPrefix.length);
+      if (!name) continue;
+      custom_counters[name] = n;
+      continue;
+    }
+  }
+  // Bare `app.<slug>.<event>` keys (e.g. `app.<slug>.ai_context_loaded` for
+  // ai_only apps — see applications.ts) live at depth 3 and don't match the
+  // slash/custom prefixes above. Surface them on `custom_counters` so the
+  // per-app page renders at least one tile for ai_only apps.
+  const baseDepth3Prefix = `app.${slug}.`;
+  for (const [key, n] of Object.entries(counters)) {
+    if (!key.startsWith(baseDepth3Prefix)) continue;
+    const tail = key.slice(baseDepth3Prefix.length);
+    if (tail.length === 0) continue;
+    // Skip already-classified prefixes/keys.
+    if (tail.startsWith("slash.")) continue;
+    if (tail.startsWith("custom.")) continue;
+    if (tail === "call.ok" || tail === "call.err") continue;
+    if (tail === "duration_ms") continue;
+    // Plain leaf event — e.g. `ai_context_loaded`. Hoist as a counter.
+    if (tail.includes(".")) continue;
+    if (custom_counters[tail] === undefined) custom_counters[tail] = n;
+  }
+  const slash_dispatched_by_cmd = [...byCmd.entries()].map(([cmd, v]) => ({
+    cmd,
+    ok: v.ok,
+    err: v.err,
+  }));
+  const slash_dispatched_total = slash_dispatched_by_cmd.reduce(
+    (s, x) => s + x.ok + x.err,
+    0,
+  );
+
+  return {
+    id: app.id,
+    slug,
+    name: app.name,
+    type: app.type,
+    enabled: app.enabled,
+    calls_ok,
+    calls_err,
+    slash_dispatched_total,
+    slash_dispatched_by_cmd,
+    duration: histograms[durationKey] ?? null,
+    custom_counters,
+  };
+}
+
 export async function registerMetricsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/metrics", async (_req, reply) => {
     try {
@@ -108,6 +201,7 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
         lastMigrationRows,
         botCfg,
         mcpRows,
+        appRows,
       ] = await Promise.all([
         sql`SELECT chat_type, COUNT(*)::int AS n FROM chats GROUP BY chat_type`,
         sql`SELECT COUNT(*)::int AS n FROM chats WHERE is_blocked = TRUE`,
@@ -157,6 +251,7 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
         sql`SELECT filename, applied_at FROM schema_migrations ORDER BY applied_at DESC LIMIT 1`,
         getTelegramBotConfig(),
         listMCPServers(),
+        listApplications(),
       ]);
 
       const db_ping_ms = await dbPingPromise;
@@ -306,6 +401,20 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
       }
 
       const counters = getCounters();
+      // Hoist histograms snapshot — used both for the applications slice
+      // (derived per-app duration) and as the top-level histograms field in
+      // the response. One sync capture before any further branching.
+      const histograms = getHistograms();
+
+      // Build per-application metric summaries from the in-memory counter
+      // and histogram maps. ai_only apps appear with all-zero / null fields
+      // since they have no hook to instrument (V5 acceptance criterion).
+      // ai_only apps surface `ai_context_loaded` as a depth-3 custom counter
+      // (R12 mitigation, see buildAppMetricSummary).
+      const applications: ApplicationMetricSummary[] = [];
+      for (const appRow of appRows) {
+        applications.push(buildAppMetricSummary(appRow, counters, histograms));
+      }
 
       const response: MetricsResponse = {
         generated_at: new Date().toISOString(),
@@ -320,7 +429,7 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
         },
         counters,
         gauges: getGauges(),
-        histograms: getHistograms(),
+        histograms,
         errors_recent: getRecentErrors(20),
         telegram: {
           chats_total,
@@ -371,6 +480,7 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
         polls,
         rules,
         db: { table_rows },
+        applications,
       };
 
       return response;
@@ -430,6 +540,44 @@ export async function registerMetricsRoutes(app: FastifyInstance): Promise<void>
     }
     const response: MetricsTimeseriesResponse = { metric: q.metric, points };
     return response;
+  });
+
+  // Per-application detail endpoint. Returns the same ApplicationMetricSummary
+  // shape as the bulk /api/metrics endpoint (built via buildAppMetricSummary)
+  // plus the in-memory timeseries ring for this slug. Timestamps are numeric
+  // Unix ms (`Date.now()` output) — half the payload size of ISO strings and
+  // no client parse cost.
+  const APP_SLUG_REGEX = /^[a-z0-9-]{1,64}$/;
+  app.get("/api/metrics/app/:slug", async (req, reply) => {
+    const params = z
+      .object({ slug: z.string().regex(APP_SLUG_REGEX) })
+      .safeParse(req.params);
+    if (!params.success) {
+      reply.code(400).send({ error: "invalid slug" });
+      return;
+    }
+    const slug = params.data.slug;
+    const appRow = await getApplicationBySlug(slug);
+    if (!appRow) {
+      reply.code(404).send({ error: "application not found" });
+      return;
+    }
+    const counters = getCounters();
+    const histograms = getHistograms();
+    const application = buildAppMetricSummary(appRow, counters, histograms);
+    const timeseries: AppMetricsDetail["timeseries"] = [];
+    // Iterate via getAppTimeseriesNames — single source of truth for which
+    // ts names have been registered for this slug.
+    for (const name of getAppTimeseriesNames(slug)) {
+      const ring = getAppTimeseries(slug, name);
+      // Emit numeric ms timestamps as-is (critic V5) — t stays a number.
+      timeseries.push({
+        name,
+        points: ring.map((p) => ({ t: p.t, v: p.v })),
+      });
+    }
+    const body: AppMetricsDetail = { application, timeseries };
+    return body;
   });
 
   app.get("/api/metrics/pricing", async () => {

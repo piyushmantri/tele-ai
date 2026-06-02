@@ -12,7 +12,7 @@ const DEFAULTS: Settings = {
   temperature: 0.7,
   gemini_model: "gemini-3-flash-preview",
   workspace_root: "/Users/piyush.mantri/spaps/tele/workspace",
-  shell_allow: ["ls", "df", "du", "echo", "pwd", "cat", "head", "tail", "wc", "uptime", "whoami", "date"],
+  shell_allow: ["ls", "df", "du", "echo", "pwd", "cat", "head", "tail", "wc", "uptime", "whoami", "date", "node", "npx", "tsx"],
   shell_deny: ["rm", "sudo", "mkfs", "dd", ":(){", "curl|sh", "wget"],
   reply_delay_ms: 1500,
   bot_prefix: "[Woody]",
@@ -30,7 +30,14 @@ export async function getSettings(): Promise<Settings> {
     )}::jsonb)`;
     return DEFAULTS;
   }
-  return { ...DEFAULTS, ...rows[0]!.value };
+  const db = rows[0]!.value;
+  // Array fields: union DB value with defaults so new default entries propagate to existing rows.
+  return {
+    ...DEFAULTS,
+    ...db,
+    shell_allow: [...new Set([...(DEFAULTS.shell_allow ?? []), ...(db.shell_allow ?? [])])],
+    shell_deny: [...new Set([...(DEFAULTS.shell_deny ?? []), ...(db.shell_deny ?? [])])],
+  };
 }
 
 export async function updateSettings(patch: Partial<Settings>): Promise<Settings> {

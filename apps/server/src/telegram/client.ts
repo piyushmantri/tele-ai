@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
+import { ConnectionTCPObfuscated } from "telegram/network/index.js";
 import { config } from "../config.js";
 import { logger } from "../util/logger.js";
 import { startKeepalive } from "./keepalive.js";
@@ -51,6 +52,7 @@ export async function startTelegram(restartCb?: () => Promise<void>): Promise<Te
     connectionRetries: 20,
     autoReconnect: true,
     retryDelay: 2000,
+    connection: ConnectionTCPObfuscated,
   });
 
   await client.start({

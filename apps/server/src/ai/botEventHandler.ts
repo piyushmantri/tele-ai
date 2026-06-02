@@ -14,6 +14,127 @@ import { getBotClient } from "../telegram/botClient.js";
 import { tryUnblockCommand } from "../telegram/unblockCommand.js";
 import { tryDispatchSlash } from "../telegram/slashDispatch.js";
 import { incCounter } from "../util/metrics.js";
+import { transcribeVoice, MAX_VOICE_DURATION_SEC } from "./voice.js";
+import {
+  countFiles,
+  createFile,
+  getApplicationsAssignedToChat,
+  saveFileLocally,
+} from "../db/repos/applicationFiles.js";
+
+const ALLOWED_MEDIA_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+]);
+const MAX_MEDIA_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_CHAT_FILES_PER_APP = 20;
+
+// Excludes music (voice falsy) and round-video by construction.
+// Inlined per-file (each file self-contained — both files already duplicate the
+// media ingestion helper).
+function detectVoice(
+  media: unknown,
+): { mimeType: string; durationSec: number } | null {
+  if (!(media instanceof Api.MessageMediaDocument)) return null;
+  const doc = media.document;
+  if (!(doc instanceof Api.Document)) return null;
+  const audioAttr = doc.attributes.find(
+    (a): a is Api.DocumentAttributeAudio =>
+      a instanceof Api.DocumentAttributeAudio && a.voice === true,
+  );
+  if (!audioAttr) return null;
+  return {
+    mimeType: doc.mimeType ?? "audio/ogg",
+    durationSec: audioAttr.duration ?? 0,
+  };
+}
+
+async function handleBotMediaIngestion(
+  event: NewMessageEvent,
+  dbChatId: string,
+  tgChatId: string,
+): Promise<void> {
+  const client = getBotClient();
+  if (!client) return;
+  const msg = event.message;
+  const media = msg.media;
+  if (!media) return;
+
+  let mimeType: string;
+  let filename: string;
+
+  if (media instanceof Api.MessageMediaPhoto) {
+    mimeType = "image/jpeg";
+    filename = `photo_${msg.id}.jpg`;
+  } else if (media instanceof Api.MessageMediaDocument) {
+    const doc = media.document;
+    if (!(doc instanceof Api.Document)) return;
+    mimeType = doc.mimeType || "application/octet-stream";
+    const nameAttr = doc.attributes.find((a) => a instanceof Api.DocumentAttributeFilename);
+    filename =
+      nameAttr instanceof Api.DocumentAttributeFilename
+        ? nameAttr.fileName
+        : `document_${msg.id}`;
+  } else {
+    return;
+  }
+
+  const reply = async (text: string) => {
+    await client.sendMessage(Number(tgChatId), { message: text });
+  };
+
+  if (!ALLOWED_MEDIA_MIMES.has(mimeType)) {
+    await reply(`Unsupported file type: ${mimeType}. Supported: images, PDF, text/markdown/csv.`);
+    return;
+  }
+
+  const apps = await getApplicationsAssignedToChat(dbChatId);
+  if (apps.length === 0) {
+    await reply("No application is assigned to this chat. Assign one in the dashboard first.");
+    return;
+  }
+  if (apps.length > 1) {
+    await reply("Multiple applications are active for this chat. Upload files from the dashboard instead.");
+    return;
+  }
+
+  const app = apps[0]!;
+  const count = await countFiles(app.id, dbChatId);
+  if (count >= MAX_CHAT_FILES_PER_APP) {
+    await reply(`Knowledge base for this chat already has ${MAX_CHAT_FILES_PER_APP} files (limit reached).`);
+    return;
+  }
+
+  const buf = await client.downloadMedia(media, { outputFile: Buffer.alloc(0) });
+  if (!(buf instanceof Buffer)) {
+    logger.warn("bot downloadMedia returned non-Buffer", { chatId: dbChatId });
+    return;
+  }
+  if (buf.byteLength > MAX_MEDIA_FILE_SIZE) {
+    await reply("File exceeds 10 MB limit.");
+    return;
+  }
+
+  const localPath = await saveFileLocally(app.id, dbChatId, filename, buf);
+  await createFile({
+    applicationId: app.id,
+    chatId: dbChatId,
+    filename,
+    mimeType,
+    sizeBytes: buf.byteLength,
+    localPath,
+  });
+
+  await reply(`Added **${filename}** to *${app.name}* knowledge base for this chat.`);
+  incCounter("media_ingestion.bot.success");
+  logger.info("bot media ingested into application KB", { appId: app.id, chatId: dbChatId, filename });
+}
 
 export async function handleBotMessage(event: NewMessageEvent): Promise<void> {
   // Pre-pipeline gate ordering (lessons-2026-05-08), mirroring router.ts:
@@ -30,11 +151,114 @@ export async function handleBotMessage(event: NewMessageEvent): Promise<void> {
     if (msg.out) return;
     const sender = await msg.getSender();
     if (!sender || !(sender instanceof Api.User)) return;
-    const userText = msg.message ?? "";
+    const tgChatId = String(sender.id);
+    let userText = msg.message ?? "";
+    let isVoiceTurn = false;
+
+    // Voice ingestion runs BEFORE handleBotMediaIngestion (lessons-2026-05-08
+    // pre-pipeline ordering); fall through sets userText so the
+    // `if (!userText) return;` guard below is bypassed.
+    if (msg.media) {
+      const v = detectVoice(msg.media);
+      if (v) {
+        const client = getBotClient();
+        if (!client) return;
+        if (v.durationSec > MAX_VOICE_DURATION_SEC) {
+          await client.sendMessage(Number(tgChatId), {
+            message: `Voice message too long (${Math.round(v.durationSec)}s). Max ${MAX_VOICE_DURATION_SEC}s.`,
+          });
+          incCounter("bot.voice.too_long");
+          return;
+        }
+        const dbChat = await upsertChat({
+          tg_chat_id: tgChatId,
+          username: sender.username ?? null,
+          first_name: sender.firstName ?? null,
+          last_name: sender.lastName ?? null,
+          chat_type: "bot",
+        });
+        let buf: Buffer;
+        try {
+          const dl = await client.downloadMedia(msg.media, {});
+          if (!(dl instanceof Buffer)) {
+            throw new Error("downloadMedia returned non-Buffer");
+          }
+          if (dl.byteLength > MAX_MEDIA_FILE_SIZE) {
+            await client.sendMessage(Number(tgChatId), {
+              message: "Voice message exceeds 10 MB limit.",
+            });
+            incCounter("bot.voice.too_big");
+            return;
+          }
+          buf = dl;
+        } catch (err) {
+          logger.warn("bot voice download failed", {
+            chat_id: dbChat.id,
+            err: err instanceof Error ? err.message : String(err),
+          });
+          await client.sendMessage(Number(tgChatId), {
+            message: "Couldn't download voice message.",
+          });
+          incCounter("bot.voice.download_err");
+          return;
+        }
+        let transcript: string;
+        try {
+          transcript = await transcribeVoice(buf, v.mimeType);
+        } catch (err) {
+          logger.warn("bot voice transcription failed", {
+            chat_id: dbChat.id,
+            err: err instanceof Error ? err.message : String(err),
+          });
+          await client.sendMessage(Number(tgChatId), {
+            message: "Couldn't transcribe voice message.",
+          });
+          incCounter("bot.voice.transcribe_err");
+          return;
+        }
+        if (!transcript.trim()) {
+          await client.sendMessage(Number(tgChatId), {
+            message: "Voice message was empty.",
+          });
+          incCounter("bot.voice.empty");
+          return;
+        }
+        userText = `[Voice]: ${transcript.trim()}`;
+        isVoiceTurn = true;
+        incCounter("bot.voice.ok");
+        // FALL THROUGH — the `if (!userText) return;` guard below is now bypassed.
+      }
+    }
+
+    // Media ingestion — runs before the text guard
+    if (msg.media && !userText) {
+      const dbChat = await upsertChat({
+        tg_chat_id: tgChatId,
+        username: sender.username ?? null,
+        first_name: sender.firstName ?? null,
+        last_name: sender.lastName ?? null,
+        chat_type: "bot",
+      });
+      await handleBotMediaIngestion(event, dbChat.id, tgChatId);
+      return;
+    }
+    if (msg.media && userText) {
+      const dbChat = await upsertChat({
+        tg_chat_id: tgChatId,
+        username: sender.username ?? null,
+        first_name: sender.firstName ?? null,
+        last_name: sender.lastName ?? null,
+        chat_type: "bot",
+      });
+      handleBotMediaIngestion(event, dbChat.id, tgChatId).catch((err) =>
+        logger.warn("bot media ingestion error", { err: err instanceof Error ? err.message : String(err) }),
+      );
+      // fall through to process caption text
+    }
+
     if (!userText) return;
     incCounter("bot.message_received");
 
-    const tgChatId = String(sender.id);
     const dbChat = await upsertChat({
       tg_chat_id: tgChatId,
       username: sender.username ?? null,
@@ -113,6 +337,7 @@ export async function handleBotMessage(event: NewMessageEvent): Promise<void> {
       replyAdapter: adapter,
       isBot: true,
       botToken: cfg.token,
+      voiceReply: isVoiceTurn,
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);

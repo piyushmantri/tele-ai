@@ -20,6 +20,7 @@ import { registerSkillsRoutes } from "./routes/skills.js";
 import { registerSlashCommandRoutes } from "./routes/slashCommands.js";
 import { registerTelegramBotRoutes } from "./routes/telegramBot.js";
 import { registerMetricsRoutes } from "./routes/metrics.js";
+import { registerApplicationRoutes } from "./routes/applications.js";
 import { registerWs } from "./ws.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,15 @@ export async function startApi(_client: TelegramClient): Promise<FastifyInstance
     const url = req.url.split("?")[0] ?? "";
     if (!url.startsWith("/api")) return;
     if (PUBLIC_PATHS.has(url)) return;
+    // Plugin UI carve-out (per critic V1): the dashboard injects a <script>
+    // tag pointing at /api/applications/<uuid>/ui.js, and browsers do NOT
+    // send our auth cookie on <script src> requests from a same-origin
+    // document by default (and cross-origin is moot here). The global hook
+    // would otherwise return JSON 401 BEFORE the route handler runs, leaving
+    // the browser to parse "{\"error\":\"unauthorized\"}" as JS — a
+    // confusing "Unexpected token <" in the console. UUID in the path is
+    // unguessable; same trust model as /api/health.
+    if (/^\/api\/applications\/[0-9a-f-]{36}\/ui\.js$/i.test(url)) return;
     const cookies = (req as typeof req & { cookies?: Record<string, string> }).cookies ?? {};
     if (cookies[AUTH_COOKIE] !== getAuthToken()) {
       reply.code(401).send({ error: "unauthorized" });
@@ -60,6 +70,7 @@ export async function startApi(_client: TelegramClient): Promise<FastifyInstance
   await registerSlashCommandRoutes(app);
   await registerTelegramBotRoutes(app);
   await registerMetricsRoutes(app);
+  await registerApplicationRoutes(app);
 
   registerWs(app, AUTH_COOKIE, getAuthToken());
 

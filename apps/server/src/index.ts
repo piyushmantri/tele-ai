@@ -11,11 +11,13 @@ import { startBotClient } from "./telegram/botClient.js";
 import { stopKeepalive } from "./telegram/keepalive.js";
 import { loadLatestFromInflux, persistToInflux } from "./util/metrics.js";
 import { flush as influxFlush } from "./util/influx.js";
+import { persistAppTimeseries, loadAppTimeseriesFromInflux } from "./ai/applicationMetrics.js";
 import {
   loadPricingFromDb,
   refreshPricing,
   getPricingMeta,
 } from "./ai/pricing.js";
+import { startApplicationBots } from "./ai/applicationBotRunner.js";
 
 async function main(): Promise<void> {
   logger.info("starting telegram-ai-agent", {
@@ -32,6 +34,15 @@ async function main(): Promise<void> {
     await loadLatestFromInflux();
   } catch (err) {
     logger.error("influx restore failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Restore app timeseries from Influx (last 3h window). Non-fatal.
+  try {
+    await loadAppTimeseriesFromInflux();
+  } catch (err) {
+    logger.error("app timeseries restore failed", {
       err: err instanceof Error ? err.message : String(err),
     });
   }
@@ -65,6 +76,12 @@ async function main(): Promise<void> {
     );
   }
 
+  startApplicationBots().catch((err) =>
+    logger.error("startApplicationBots failed", {
+      err: err instanceof Error ? err.message : String(err),
+    }),
+  );
+
   logger.info("ready");
 
   // 60s snapshot interval. No-op when influx unconfigured. Per-tick failures
@@ -72,6 +89,11 @@ async function main(): Promise<void> {
   setInterval(() => {
     void persistToInflux().catch((err) =>
       logger.error("metrics persist failed", {
+        err: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    void persistAppTimeseries().catch((err) =>
+      logger.error("app timeseries persist failed", {
         err: err instanceof Error ? err.message : String(err),
       }),
     );

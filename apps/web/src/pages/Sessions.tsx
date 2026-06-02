@@ -39,7 +39,7 @@ export default function Sessions() {
       {selected ? (
         <ChatView chat={selected} />
       ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-sm" style={{ color: "var(--kode-text-muted)" }}>
           Select a chat to view messages.
         </div>
       )}

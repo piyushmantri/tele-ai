@@ -1,6 +1,10 @@
-import { useEffect, useRef } from "react";
+// kodeUI <Tabs> not adopted — section layout doesn't map to {id, label, content} shape without refactor.
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { Card, CardBody, Button, Badge, Spinner } from "kodeui";
 import type {
+  ApplicationMetricSummary,
   ErrorBucket,
   HistogramSnapshot,
   MetricsResponse,
@@ -49,10 +53,12 @@ function diffSeries(values: number[]): number[] {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded border border-slate-800 bg-slate-900 p-5">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
-      {children}
-    </div>
+    <Card>
+      <CardBody>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--kode-text-muted)" }}>{title}</h2>
+        {children}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -69,12 +75,12 @@ function KpiTile({
   spark?: number[];
   tone?: "ok" | "bad" | "muted";
 }) {
-  const valColor = tone === "bad" ? "text-rose-400" : tone === "ok" ? "text-emerald-400" : "text-slate-100";
+  const valColor = tone === "bad" ? "var(--kode-error)" : tone === "ok" ? "var(--kode-success)" : "var(--kode-text-primary)";
   return (
-    <div className="min-w-[140px] flex-1 rounded bg-slate-800 p-3">
-      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${valColor}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-slate-500">{sub}</div>}
+    <div className="min-w-[140px] flex-1 rounded p-3" style={{ background: "var(--kode-bg-darker)" }}>
+      <div className="text-xs uppercase tracking-wide" style={{ color: "var(--kode-text-muted)" }}>{label}</div>
+      <div className="mt-1 text-xl font-semibold tabular-nums" style={{ color: valColor }}>{value}</div>
+      {sub && <div className="mt-0.5 text-xs" style={{ color: "var(--kode-text-muted)" }}>{sub}</div>}
       {spark && spark.length > 0 && (
         <div className="mt-1">
           <Sparkline values={spark} width={120} height={20} />
@@ -95,10 +101,10 @@ function MetricRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1 text-sm">
-      <span className="truncate text-slate-300" title={label}>{label}</span>
+      <span className="truncate" style={{ color: "var(--kode-text-secondary)" }} title={label}>{label}</span>
       <div className="flex items-center gap-3">
         {spark && spark.length > 0 && <Sparkline values={spark} width={80} height={18} />}
-        <span className="w-16 text-right tabular-nums text-slate-100">{value}</span>
+        <span className="w-16 text-right tabular-nums" style={{ color: "var(--kode-text-primary)" }}>{value}</span>
       </div>
     </div>
   );
@@ -107,26 +113,150 @@ function MetricRow({
 function HistogramRow({ name, snap }: { name: string; snap: HistogramSnapshot }) {
   return (
     <div className="flex items-center gap-3 py-1 text-sm">
-      <span className="w-48 truncate text-slate-300" title={name}>{name}</span>
-      <span className="w-16 tabular-nums text-slate-400">n={snap.count}</span>
-      <span className="w-24 tabular-nums text-slate-400">p50 {snap.p50.toFixed(0)}</span>
-      <span className="w-24 tabular-nums text-amber-400">p95 {snap.p95.toFixed(0)}</span>
-      <span className="w-24 tabular-nums text-rose-400">p99 {snap.p99.toFixed(0)}</span>
-      <span className="w-24 tabular-nums text-slate-100">max {snap.max.toFixed(0)}</span>
+      <span className="w-48 truncate" style={{ color: "var(--kode-text-secondary)" }} title={name}>{name}</span>
+      <span className="w-16 tabular-nums" style={{ color: "var(--kode-text-muted)" }}>n={snap.count}</span>
+      <span className="w-24 tabular-nums" style={{ color: "var(--kode-text-muted)" }}>p50 {snap.p50.toFixed(0)}</span>
+      <span className="w-24 tabular-nums" style={{ color: "var(--kode-warning)" }}>p95 {snap.p95.toFixed(0)}</span>
+      <span className="w-24 tabular-nums" style={{ color: "var(--kode-error)" }}>p99 {snap.p99.toFixed(0)}</span>
+      <span className="w-24 tabular-nums" style={{ color: "var(--kode-text-primary)" }}>max {snap.max.toFixed(0)}</span>
       <PercentileBar snap={snap} />
     </div>
   );
 }
 
 function ErrorRow({ bucket }: { bucket: ErrorBucket }) {
-  const color = bucket.level === "warn" ? "bg-amber-500" : "bg-rose-500";
   return (
     <div className="flex items-center gap-3 py-1 text-xs">
-      <span className={`inline-block h-2 w-2 rounded-full ${color}`} />
-      <span className="w-16 uppercase tracking-wide text-slate-500">{bucket.level}</span>
-      <span className="flex-1 truncate text-slate-300" title={bucket.message}>{bucket.source}</span>
-      <span className="w-12 tabular-nums text-slate-400">{bucket.count}</span>
-      <span className="w-20 text-right text-slate-500">{fmtAgo(bucket.last_seen)}</span>
+      <Badge variant={bucket.level === "warn" ? "warning" : "error"}>{bucket.level}</Badge>
+      <span className="flex-1 truncate" style={{ color: "var(--kode-text-secondary)" }} title={bucket.message}>{bucket.source}</span>
+      <span className="w-12 tabular-nums" style={{ color: "var(--kode-text-muted)" }}>{bucket.count}</span>
+      <span className="w-20 text-right" style={{ color: "var(--kode-text-muted)" }}>{fmtAgo(bucket.last_seen)}</span>
+    </div>
+  );
+}
+
+function ApplicationRow({
+  app,
+  open,
+  onToggle,
+}: {
+  app: ApplicationMetricSummary;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const nav = useNavigate();
+  const calls_total = app.calls_ok + app.calls_err;
+  const hasNoInstrumentation =
+    calls_total === 0 &&
+    app.slash_dispatched_total === 0 &&
+    app.duration === null &&
+    Object.keys(app.custom_counters).length === 0;
+  const topSlash = [...app.slash_dispatched_by_cmd]
+    .sort((a, b) => b.ok + b.err - (a.ok + a.err))
+    .slice(0, 5)
+    .map((s) => ({
+      label: s.cmd,
+      value: s.ok + s.err,
+      segments: [
+        { value: s.ok, color: "#10b981" },
+        { value: s.err, color: "#f43f5e" },
+      ],
+    }));
+  // Row container is a <div role="button"> rather than a <button> so that the
+  // sibling nav <button> doesn't violate HTML5's no-nested-interactive rule
+  // (critic B1). Chevron toggle is on the container's onClick; the nav button
+  // stopPropagation's so the row doesn't expand when navigating away.
+  return (
+    <div className="rounded border" style={{ borderColor: "var(--kode-border)" }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm cursor-pointer"
+        style={{ color: "var(--kode-text-primary)" }}
+      >
+        <span style={{ color: "var(--kode-text-muted)" }}>{open ? "▾" : "▸"}</span>
+        <span className="flex-1 truncate">{app.name}</span>
+        <span className="text-xs" style={{ color: "var(--kode-text-muted)" }}>{app.slug}</span>
+        <Badge variant={app.type === "code" ? "success" : "default"}>{app.type}</Badge>
+        <Badge variant={app.enabled ? "success" : "default"}>
+          {app.enabled ? "enabled" : "disabled"}
+        </Badge>
+        <span
+          className="w-20 text-right tabular-nums text-xs"
+          style={{ color: app.calls_err > 0 ? "var(--kode-error)" : "var(--kode-text-muted)" }}
+        >
+          {calls_total} call{calls_total === 1 ? "" : "s"}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            nav(`/applications/${app.id}?tab=observability`);
+          }}
+          title="Open observability for this app"
+        >
+          Observability →
+        </Button>
+      </div>
+      {open && (
+        <div className="border-t px-3 py-3" style={{ borderColor: "var(--kode-border)" }}>
+          {hasNoInstrumentation ? (
+            <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>
+              (no instrumented calls{app.type === "ai_only" ? " — ai_only app" : ""})
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3">
+                <KpiTile label="Calls ok" value={app.calls_ok} tone="ok" />
+                <KpiTile
+                  label="Calls err"
+                  value={app.calls_err}
+                  tone={app.calls_err > 0 ? "bad" : undefined}
+                />
+                <KpiTile label="Slash total" value={app.slash_dispatched_total} />
+              </div>
+              {topSlash.length > 0 && (
+                <div className="mb-3">
+                  <div className="mb-1 text-xs" style={{ color: "var(--kode-text-muted)" }}>
+                    Top slash commands (green=ok, rose=err)
+                  </div>
+                  <HBar items={topSlash} />
+                </div>
+              )}
+              {app.duration && (
+                <div className="mb-3">
+                  <div className="mb-1 text-xs" style={{ color: "var(--kode-text-muted)" }}>
+                    getContext duration
+                  </div>
+                  <HistogramRow name={`app.${app.slug}.duration_ms`} snap={app.duration} />
+                </div>
+              )}
+              {Object.keys(app.custom_counters).length > 0 && (
+                <div>
+                  <div className="mb-1 text-xs" style={{ color: "var(--kode-text-muted)" }}>
+                    Custom counters
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(app.custom_counters)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([name, n]) => (
+                        <MetricRow key={name} label={name} value={n} />
+                      ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -134,6 +264,7 @@ function ErrorRow({ bucket }: { bucket: ErrorBucket }) {
 export default function Metrics() {
   const samplesRef = useRef<MetricsResponse[]>([]);
   const qc = useQueryClient();
+  const [openApps, setOpenApps] = useState<Record<string, boolean>>({});
   const q = useQuery({
     queryKey: qk.metrics,
     queryFn: () => api.get<MetricsResponse>("/api/metrics"),
@@ -150,7 +281,14 @@ export default function Metrics() {
     samplesRef.current = [...samplesRef.current, q.data].slice(-RING_CAP);
   }, [q.data]);
 
-  if (!q.data) return <div className="p-6 text-sm text-slate-400">Loading...</div>;
+  if (!q.data) {
+    return (
+      <div className="p-6 text-sm flex items-center gap-2" style={{ color: "var(--kode-text-muted)" }}>
+        <Spinner size="sm" />
+        Loading...
+      </div>
+    );
+  }
 
   const data = q.data;
   const samples = samplesRef.current;
@@ -222,12 +360,12 @@ export default function Metrics() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mb-4 flex items-end justify-between">
-        <h1 className="text-xl font-semibold">Observability</h1>
-        <div className="text-xs text-slate-500">
+        <h1 className="text-xl font-semibold" style={{ color: "var(--kode-text-primary)", fontFamily: "var(--kode-font-mono)" }}>Observability</h1>
+        <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>
           generated {fmtAgo(data.generated_at)} · persisted {fmtAgo(data.server.snapshot_at)}
         </div>
       </div>
-      <div className="mb-4 text-xs text-slate-500">
+      <div className="mb-4 text-xs" style={{ color: "var(--kode-text-muted)" }}>
         Counters/gauges/errors restore from latest InfluxDB snapshot on boot. Sparklines are
         rolling 5 min in-browser; reset on full page refresh. Histograms reset on server restart.
       </div>
@@ -341,27 +479,28 @@ export default function Metrics() {
             <KpiTile label="tokens.prompt" value={data.counters["gemini.tokens.prompt"] ?? 0} />
             <KpiTile label="tokens.completion" value={data.counters["gemini.tokens.completion"] ?? 0} />
           </div>
-          <div className="mb-3 rounded bg-slate-800 p-3">
+          <div className="mb-3 rounded p-3" style={{ background: "var(--kode-bg-darker)" }}>
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-300">AI Spend</div>
-              <button
+              <div className="text-sm font-semibold" style={{ color: "var(--kode-text-secondary)" }}>AI Spend</div>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => refreshPricing.mutate()}
                 disabled={refreshPricing.isPending}
-                className="rounded bg-slate-700 px-2 py-1 text-xs hover:bg-slate-600 disabled:opacity-50"
                 title="Fetch latest pricing from Gemini now"
               >
                 {refreshPricing.isPending ? "Refreshing…" : "Refresh pricing"}
-              </button>
+              </Button>
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-6">
               <div>
-                <div className="text-xs text-slate-400">since boot</div>
+                <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>since boot</div>
                 <div className="text-xl tabular-nums">
                   ${(data.ai.cost_micro_usd_total / 1_000_000).toFixed(4)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">last 24h</div>
+                <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>last 24h</div>
                 <div className="text-xl tabular-nums">
                   {data.ai.cost_micro_usd_24h === null
                     ? "—"
@@ -369,30 +508,27 @@ export default function Metrics() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">cost rate</div>
+                <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>cost rate</div>
                 <Sparkline values={counterRateSeries("gemini.cost_micro_usd")} width={140} height={24} />
-                <div className="text-xs text-slate-500">rolling 5 min, micro-USD/poll</div>
+                <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>rolling 5 min, micro-USD/poll</div>
               </div>
             </div>
-            <div className="mt-2 text-xs text-slate-400">
+            <div className="mt-2 text-xs" style={{ color: "var(--kode-text-muted)" }}>
               {data.ai.pricing.input_per_1m_usd === null ||
               data.ai.pricing.output_per_1m_usd === null ? (
                 <span>Pricing not yet fetched — refresh runs every 24h</span>
               ) : (
                 <>
                   ${data.ai.pricing.input_per_1m_usd}/1M in · ${data.ai.pricing.output_per_1m_usd}/1M out
-                  <span
-                    className={`ml-2 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                      data.ai.pricing.is_override
-                        ? "bg-amber-900 text-amber-300"
-                        : "bg-emerald-900 text-emerald-300"
-                    }`}
-                  >
-                    {data.ai.pricing.is_override ? "override" : "auto"}
+                  <span className="ml-2 inline-block">
+                    <Badge variant={data.ai.pricing.is_override ? "warning" : "success"}>
+                      {data.ai.pricing.is_override ? "override" : "auto"}
+                    </Badge>
                   </span>
                   {data.ai.pricing.source_url && (
                     <a
-                      className="ml-2 text-sky-400 underline"
+                      className="ml-2 underline"
+                      style={{ color: "var(--kode-info)" }}
                       href={data.ai.pricing.source_url}
                       target="_blank"
                       rel="noreferrer"
@@ -401,16 +537,16 @@ export default function Metrics() {
                     </a>
                   )}
                   {data.ai.pricing.fetched_at && (
-                    <span className="ml-2 text-slate-500">
+                    <span className="ml-2" style={{ color: "var(--kode-text-muted)" }}>
                       fetched {fmtAgo(data.ai.pricing.fetched_at)}
                     </span>
                   )}
-                  <span className="ml-2 text-slate-500">model: {data.ai.pricing.model_id}</span>
+                  <span className="ml-2" style={{ color: "var(--kode-text-muted)" }}>model: {data.ai.pricing.model_id}</span>
                 </>
               )}
             </div>
           </div>
-          <div className="mb-2 text-xs text-slate-500">Latency</div>
+          <div className="mb-2 text-xs" style={{ color: "var(--kode-text-muted)" }}>Latency</div>
           {geminiHist ? (
             <>
               <HistogramRow name="gemini.latency_ms" snap={geminiHist} />
@@ -423,7 +559,7 @@ export default function Metrics() {
               </div>
             </>
           ) : (
-            <div className="text-xs text-slate-500">No samples yet</div>
+            <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>No samples yet</div>
           )}
         </Section>
 
@@ -449,16 +585,16 @@ export default function Metrics() {
           <div className="space-y-1 text-sm">
             {data.mcp.servers.map((s) => (
               <div key={s.name} className="flex items-center gap-3 py-1">
-                <span className="flex-1 truncate text-slate-300">{s.name}</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${s.enabled ? "bg-emerald-900 text-emerald-300" : "bg-slate-800 text-slate-500"}`}>
+                <span className="flex-1 truncate" style={{ color: "var(--kode-text-secondary)" }}>{s.name}</span>
+                <Badge variant={s.enabled ? "success" : "default"}>
                   {s.enabled ? "enabled" : "disabled"}
-                </span>
-                <span className={`rounded px-2 py-0.5 text-xs ${s.connected ? "bg-emerald-900 text-emerald-300" : "bg-rose-900 text-rose-300"}`}>
+                </Badge>
+                <Badge variant={s.connected ? "success" : "error"}>
                   {s.connected ? "connected" : "down"}
-                </span>
+                </Badge>
               </div>
             ))}
-            {data.mcp.servers.length === 0 && <div className="text-xs text-slate-500">No MCP servers configured</div>}
+            {data.mcp.servers.length === 0 && <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>No MCP servers configured</div>}
           </div>
           <div className="mt-3 space-y-1">
             {Object.entries(data.counters)
@@ -494,10 +630,50 @@ export default function Metrics() {
           </div>
         </Section>
 
+        {/* 9b. Applications */}
+        <Section title="Applications">
+          {data.applications.length === 0 ? (
+            <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>
+              No applications installed
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3">
+                <KpiTile label="Installed" value={data.applications.length} />
+                <KpiTile
+                  label="With calls"
+                  value={
+                    data.applications.filter((a) => a.calls_ok + a.calls_err > 0).length
+                  }
+                />
+                <KpiTile
+                  label="With errors"
+                  value={data.applications.filter((a) => a.calls_err > 0).length}
+                  tone={
+                    data.applications.some((a) => a.calls_err > 0) ? "bad" : undefined
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                {data.applications.map((app) => (
+                  <ApplicationRow
+                    key={app.slug}
+                    app={app}
+                    open={Boolean(openApps[app.slug])}
+                    onToggle={() =>
+                      setOpenApps((prev) => ({ ...prev, [app.slug]: !prev[app.slug] }))
+                    }
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </Section>
+
         {/* 10. Database */}
         <Section title="Database">
           <HBar items={tableRowItems} />
-          <div className="mt-3 text-xs text-slate-500">
+          <div className="mt-3 text-xs" style={{ color: "var(--kode-text-muted)" }}>
             Last migration:{" "}
             {data.server.last_migration ? (
               <span>
@@ -527,7 +703,7 @@ export default function Metrics() {
         {/* 12. Errors */}
         <Section title="Errors (top 20)">
           {data.errors_recent.length === 0 ? (
-            <div className="text-xs text-slate-500">No errors recorded</div>
+            <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>No errors recorded</div>
           ) : (
             <div className="space-y-1">
               {data.errors_recent.map((e, i) => (

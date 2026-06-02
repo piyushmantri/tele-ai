@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardBody, Select, Input, Button, Badge } from "kodeui";
 import type { Chat, Reminder } from "@tele/shared";
 import { api } from "../lib/api";
 import { qk } from "../lib/queryKeys";
@@ -49,65 +50,80 @@ export default function Reminders() {
     return [c.first_name, c.last_name].filter(Boolean).join(" ") || c.username || c.tg_chat_id;
   }
 
+  const chatOptions = [
+    { value: "", label: "target chat..." },
+    ...(chatsQ.data?.chats.map((c) => ({ value: c.id, label: chatTitle(c) })) ?? []),
+  ];
+
   return (
     <div className="h-full overflow-y-auto p-6">
-      <h1 className="mb-4 text-xl font-semibold">Reminders</h1>
+      <h1
+        className="mb-4 text-xl font-semibold"
+        style={{ color: "var(--kode-text-primary)", fontFamily: "var(--kode-font-mono)" }}
+      >
+        Reminders
+      </h1>
 
-      <div className="mb-6 max-w-3xl rounded border border-slate-800 bg-slate-900 p-4">
-        <div className="grid grid-cols-12 gap-2">
-          <select
-            value={chatId}
-            onChange={(e) => setChatId(e.target.value)}
-            className="col-span-3 rounded border border-slate-700 bg-slate-800 px-2 py-2 text-sm"
-          >
-            <option value="">target chat...</option>
-            {chatsQ.data?.chats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {chatTitle(c)}
-              </option>
-            ))}
-          </select>
-          <input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="message"
-            className="col-span-5 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-          />
-          <input
-            value={cron}
-            onChange={(e) => setCron(e.target.value)}
-            placeholder="cron e.g. 0 * * * *"
-            className="col-span-2 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-          />
-          <input
-            type="datetime-local"
-            value={fireAt}
-            onChange={(e) => setFireAt(e.target.value)}
-            className="col-span-2 rounded border border-slate-700 bg-slate-800 px-2 py-2 text-sm"
-          />
-        </div>
-        <div className="mt-3 flex justify-end">
-          <button
-            disabled={!chatId || !message || (!cron && !fireAt) || create.isPending}
-            onClick={() =>
-              create.mutate({
-                target_chat_id: chatId,
-                message,
-                cron_expr: cron || undefined,
-                fire_at: fireAt ? new Date(fireAt).toISOString() : undefined,
-              })
-            }
-            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
-          >
-            Add reminder
-          </button>
-        </div>
+      <div className="mb-6 max-w-3xl">
+        <Card>
+          <CardBody>
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-3">
+                <Select
+                  value={chatId}
+                  onChange={(e) => setChatId(e.target.value)}
+                  options={chatOptions}
+                />
+              </div>
+              <div className="col-span-5">
+                <Input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="message"
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  value={cron}
+                  onChange={(e) => setCron(e.target.value)}
+                  placeholder="cron e.g. 0 * * * *"
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="datetime-local"
+                  value={fireAt}
+                  onChange={(e) => setFireAt(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <Button
+                variant="filled"
+                disabled={!chatId || !message || (!cron && !fireAt) || create.isPending}
+                onClick={() =>
+                  create.mutate({
+                    target_chat_id: chatId,
+                    message,
+                    cron_expr: cron || undefined,
+                    fire_at: fireAt ? new Date(fireAt).toISOString() : undefined,
+                  })
+                }
+              >
+                Add reminder
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="max-w-4xl rounded border border-slate-800 bg-slate-900">
+      <div
+        className="max-w-4xl rounded"
+        style={{ border: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+      >
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+            <tr style={{ borderBottom: "1px solid var(--kode-border)", color: "var(--kode-text-muted)" }} className="text-left text-xs uppercase">
               <th className="px-4 py-2">Schedule</th>
               <th className="px-4 py-2">Target chat</th>
               <th className="px-4 py-2">Message</th>
@@ -120,28 +136,28 @@ export default function Reminders() {
           <tbody>
             {q.data?.reminders.map((r) => {
               const chat = chatsQ.data?.chats.find((c) => c.id === r.target_chat_id);
+              const statusVariant: "success" | "error" | "default" =
+                r.fired ? "default" : r.active ? "success" : "error";
+              const statusLabel = r.fired ? "fired" : r.active ? "active" : "cancelled";
               return (
-                <tr key={r.id} className="border-b border-slate-800 last:border-b-0">
+                <tr key={r.id} style={{ borderBottom: "1px solid var(--kode-border)" }}>
                   <td className="px-4 py-2 font-mono text-xs">
                     {r.cron_expr ? `cron: ${r.cron_expr}` : `at: ${r.fire_at}`}
                   </td>
                   <td className="px-4 py-2">{chat ? chatTitle(chat) : r.target_chat_id}</td>
                   <td className="px-4 py-2">{r.message}</td>
-                  <td className="px-4 py-2 text-slate-400">{r.source}</td>
-                  <td className="px-4 py-2 text-slate-500">
+                  <td className="px-4 py-2" style={{ color: "var(--kode-text-muted)" }}>{r.source}</td>
+                  <td className="px-4 py-2" style={{ color: "var(--kode-text-muted)" }}>
                     {r.next_fire_at ? new Date(r.next_fire_at).toLocaleString() : "-"}
                   </td>
                   <td className="px-4 py-2">
-                    {r.fired ? "fired" : r.active ? "active" : "cancelled"}
+                    <Badge variant={statusVariant}>{statusLabel}</Badge>
                   </td>
                   <td className="px-4 py-2 text-right">
                     {r.active && !r.fired && (
-                      <button
-                        onClick={() => remove.mutate(r.id)}
-                        className="text-xs text-rose-400 hover:text-rose-300"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}>
                         Cancel
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -149,7 +165,7 @@ export default function Reminders() {
             })}
             {q.data && q.data.reminders.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-6 text-center" style={{ color: "var(--kode-text-muted)" }}>
                   No reminders yet.
                 </td>
               </tr>
