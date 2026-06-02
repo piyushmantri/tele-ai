@@ -1,0 +1,35 @@
+.kode-select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kode-space-2);
+}
+
+.kode-select {
+  background: var(--kode-bg);
+  border: 1px solid var(--kode-border);
+  border-radius: var(--kode-radius-md);
+  padding: 10px 12px;
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-base);
+  color: var(--kode-green);
+  transition: var(--kode-transition);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2300ff00' viewBox='0 0 16 16'%3E%3Cpath d='M8 12L2 6h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.kode-select:focus {
+  border-color: var(--kode-border-green-focus);
+  box-shadow: var(--kode-glow-sm);
+}
+
+.kode-select option {
+  background: var(--kode-bg);
+  color: var(--kode-green);
+}

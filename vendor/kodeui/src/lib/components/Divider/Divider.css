@@ -1,0 +1,25 @@
+.kode-divider {
+  border: none;
+  height: 1px;
+  background: var(--kode-border);
+  margin: var(--kode-space-5) 0;
+}
+
+.kode-divider--glow {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--kode-border-green),
+    var(--kode-green),
+    var(--kode-border-green),
+    transparent
+  );
+  box-shadow: 0 0 4px rgba(0, 255, 0, 0.2);
+}
+
+.kode-divider--vertical {
+  width: 1px;
+  height: auto;
+  margin: 0 var(--kode-space-5);
+  align-self: stretch;
+}

@@ -1,0 +1,13 @@
+.kode-kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-sm);
+  color: var(--kode-green);
+  background: var(--kode-bg);
+  border: 1px solid var(--kode-border);
+  border-bottom-width: 2px;
+  border-radius: var(--kode-radius-sm);
+  line-height: 1.4;
+}

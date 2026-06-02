@@ -1,0 +1,29 @@
+@keyframes kode-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes kode-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.kode-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kode-spinner__ring {
+  border: 2px solid var(--kode-border);
+  border-top-color: var(--kode-green);
+  border-radius: 50%;
+  animation: kode-spin 0.8s linear infinite;
+}
+
+.kode-spinner--sm .kode-spinner__ring { width: 16px; height: 16px; }
+.kode-spinner--md .kode-spinner__ring { width: 24px; height: 24px; }
+.kode-spinner--lg .kode-spinner__ring { width: 36px; height: 36px; }
+
+.kode-spinner__ring--glow {
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}

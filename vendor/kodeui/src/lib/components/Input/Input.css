@@ -1,0 +1,50 @@
+.kode-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kode-space-2);
+}
+
+.kode-input-label {
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-sm);
+  color: var(--kode-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kode-input {
+  background: var(--kode-bg);
+  border: 1px solid var(--kode-border);
+  border-radius: var(--kode-radius-md);
+  padding: 10px 12px;
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-base);
+  color: var(--kode-green);
+  transition: var(--kode-transition);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.kode-input::placeholder {
+  color: var(--kode-text-dim);
+}
+
+.kode-input:focus {
+  border-color: var(--kode-border-green-focus);
+  box-shadow: var(--kode-glow-sm);
+}
+
+.kode-input--error {
+  border-color: var(--kode-error);
+}
+.kode-input--error:focus {
+  border-color: var(--kode-error);
+  box-shadow: 0 0 5px rgba(239, 71, 67, 0.3);
+}
+
+.kode-input-error-text {
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-sm);
+  color: var(--kode-error);
+}

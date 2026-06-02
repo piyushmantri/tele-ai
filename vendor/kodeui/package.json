@@ -1,0 +1,54 @@
+{
+  "_comment": "Vendored from https://github.com/piyushmantri/kodeui on 2026-05-26. Built once locally; dist/ committed so pnpm install does no work.",
+  "name": "kodeui",
+  "private": false,
+  "version": "1.0.0",
+  "description": "A hacker-inspired React component library inspired by KodePad",
+  "type": "module",
+  "main": "dist/kodeui.umd.cjs",
+  "module": "dist/kodeui.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/kodeui.js",
+      "require": "./dist/kodeui.umd.cjs"
+    },
+    "./style.css": "./dist/kodeui.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "build:docs": "vite build",
+    "build": "npm run build:lib && npm run build:docs",
+    "preview": "vite preview",
+    "deploy": "npm run build:docs"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.5.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.1",
+    "typescript": "~5.9.3",
+    "vite": "^6.3.5",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "keywords": [
+    "react",
+    "ui",
+    "components",
+    "cyberpunk",
+    "dark-theme",
+    "kodepad"
+  ],
+  "license": "MIT"
+}

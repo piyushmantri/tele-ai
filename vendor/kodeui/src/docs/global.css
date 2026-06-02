@@ -1,0 +1,66 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0a0a;
+  color: #e0e0e0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+[data-theme="light"] body {
+  background: #f4f4f4;
+  color: #1a1a1a;
+}
+
+a {
+  color: #0f0;
+  text-decoration: none;
+}
+
+[data-theme="light"] a {
+  color: #007700;
+}
+
+a:hover {
+  text-shadow: 0 0 5px #0f0;
+}
+
+[data-theme="light"] a:hover {
+  text-shadow: 0 0 5px rgba(0, 119, 0, 0.4);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #e8e8e8;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #aaa;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}

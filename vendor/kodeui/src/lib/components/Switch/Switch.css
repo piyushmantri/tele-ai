@@ -1,0 +1,53 @@
+.kode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kode-space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.kode-switch__track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--kode-bg-elevated);
+  border: 1px solid var(--kode-border);
+  border-radius: var(--kode-radius-full);
+  transition: var(--kode-transition);
+}
+
+.kode-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--kode-text-muted);
+  border-radius: 50%;
+  transition: var(--kode-transition);
+}
+
+.kode-switch--checked .kode-switch__track {
+  background: rgba(0, 255, 0, 0.2);
+  border-color: var(--kode-green);
+  box-shadow: var(--kode-glow-xs);
+}
+
+.kode-switch--checked .kode-switch__thumb {
+  transform: translateX(18px);
+  background: var(--kode-green);
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
+}
+
+.kode-switch__label {
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-base);
+  color: var(--kode-text-secondary);
+}
+
+.kode-switch__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}

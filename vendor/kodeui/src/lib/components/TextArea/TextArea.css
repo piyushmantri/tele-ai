@@ -1,0 +1,25 @@
+.kode-textarea {
+  background: var(--kode-bg);
+  border: 1px solid var(--kode-border);
+  border-radius: var(--kode-radius-md);
+  padding: 10px 12px;
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-base);
+  color: var(--kode-green);
+  transition: var(--kode-transition);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+}
+.kode-textarea::placeholder { color: var(--kode-text-dim); }
+.kode-textarea:focus {
+  border-color: var(--kode-border-green-focus);
+  box-shadow: var(--kode-glow-sm);
+}
+.kode-textarea--error { border-color: var(--kode-error); }
+.kode-textarea--error:focus {
+  border-color: var(--kode-error);
+  box-shadow: 0 0 5px rgba(239, 71, 67, 0.3);
+}

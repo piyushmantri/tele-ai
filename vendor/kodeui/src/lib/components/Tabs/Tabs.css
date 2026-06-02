@@ -1,0 +1,36 @@
+.kode-tabs {
+  display: flex;
+  flex-direction: column;
+}
+
+.kode-tabs__list {
+  display: flex;
+  border-bottom: 1px solid var(--kode-border);
+  gap: 0;
+}
+
+.kode-tabs__tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--kode-space-3) var(--kode-space-5);
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-base);
+  color: var(--kode-text-muted);
+  cursor: pointer;
+  transition: var(--kode-transition);
+}
+
+.kode-tabs__tab:hover {
+  color: var(--kode-green);
+}
+
+.kode-tabs__tab--active {
+  color: var(--kode-green);
+  border-bottom-color: var(--kode-green);
+  text-shadow: var(--kode-text-glow-sm);
+}
+
+.kode-tabs__panel {
+  padding: var(--kode-space-5) 0;
+}

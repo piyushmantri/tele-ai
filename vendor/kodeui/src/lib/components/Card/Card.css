@@ -1,0 +1,47 @@
+.kode-card {
+  background: var(--kode-bg-light);
+  border: 1px solid var(--kode-border);
+  border-radius: var(--kode-radius-lg);
+  padding: var(--kode-space-6);
+  transition: var(--kode-transition);
+}
+
+.kode-card--hoverable:hover {
+  border-color: var(--kode-border-green);
+  box-shadow: var(--kode-glow-xs);
+}
+
+.kode-card--glow {
+  border-color: var(--kode-border-green);
+  box-shadow: var(--kode-glow-sm);
+}
+
+.kode-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--kode-space-4);
+}
+
+.kode-card__title {
+  font-family: var(--kode-font-mono);
+  font-size: var(--kode-text-lg);
+  color: var(--kode-green);
+  text-shadow: var(--kode-text-glow-sm);
+  margin: 0;
+}
+
+.kode-card__body {
+  color: var(--kode-text-secondary);
+  font-family: var(--kode-font-sans);
+  font-size: var(--kode-text-base);
+  line-height: 1.6;
+}
+
+.kode-card__footer {
+  margin-top: var(--kode-space-4);
+  padding-top: var(--kode-space-4);
+  border-top: 1px solid var(--kode-border);
+  display: flex;
+  gap: var(--kode-space-3);
+}

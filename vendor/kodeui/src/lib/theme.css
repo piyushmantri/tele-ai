@@ -1,0 +1,136 @@
+:root {
+  /* === Primary Colors === */
+  --kode-green: #0f0;
+  --kode-green-rgb: 0, 255, 0;
+  --kode-green-dim: #0a0;
+  --kode-green-bright: #3f3;
+
+  /* === Background Colors === */
+  --kode-bg-darkest: #000;
+  --kode-bg-darker: #0a0a0a;
+  --kode-bg-dark: #0d0d0d;
+  --kode-bg: #111;
+  --kode-bg-light: #1a1a1a;
+  --kode-bg-lighter: #1e1e1e;
+  --kode-bg-panel: #2d2d2d;
+  --kode-bg-elevated: #3c3c3c;
+  --kode-bg-hover: #4c4c4c;
+
+  /* === Text Colors === */
+  --kode-text-primary: #0f0;
+  --kode-text-secondary: #e0e0e0;
+  --kode-text-tertiary: #aaa;
+  --kode-text-muted: #888;
+  --kode-text-dim: #666;
+
+  /* === Border Colors === */
+  --kode-border: #333;
+  --kode-border-light: #555;
+  --kode-border-green: rgba(0, 255, 0, 0.4);
+  --kode-border-green-focus: rgba(0, 255, 0, 0.8);
+
+  /* === Semantic Colors === */
+  --kode-success: #2cbb5d;
+  --kode-error: #ef4743;
+  --kode-warning: #f7bb3b;
+  --kode-info: #3b82f6;
+
+  /* === Typography === */
+  --kode-font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+  --kode-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --kode-text-xs: 11px;
+  --kode-text-sm: 12px;
+  --kode-text-base: 14px;
+  --kode-text-md: 16px;
+  --kode-text-lg: 18px;
+  --kode-text-xl: 24px;
+  --kode-text-2xl: 32px;
+  --kode-text-3xl: 48px;
+  --kode-text-display: 72px;
+
+  /* === Spacing === */
+  --kode-space-1: 4px;
+  --kode-space-2: 8px;
+  --kode-space-3: 12px;
+  --kode-space-4: 16px;
+  --kode-space-5: 20px;
+  --kode-space-6: 24px;
+  --kode-space-8: 32px;
+  --kode-space-10: 40px;
+
+  /* === Border Radius === */
+  --kode-radius-sm: 3px;
+  --kode-radius-md: 4px;
+  --kode-radius-lg: 8px;
+  --kode-radius-xl: 12px;
+  --kode-radius-full: 999px;
+
+  /* === Shadows === */
+  --kode-glow-xs: 0 0 5px rgba(0, 255, 0, 0.2);
+  --kode-glow-sm: 0 0 5px rgba(0, 255, 0, 0.3);
+  --kode-glow-md: 0 0 10px rgba(0, 255, 0, 0.4);
+  --kode-glow-lg: 0 0 14px rgba(0, 255, 0, 0.5);
+  --kode-glow-xl: 0 0 20px rgba(0, 255, 0, 0.35);
+  --kode-shadow-dark: 0 20px 40px rgba(0, 0, 0, 0.5);
+
+  /* === Text Shadows === */
+  --kode-text-glow-sm: 0 0 5px #0f0;
+  --kode-text-glow-md: 0 0 10px #0f0;
+
+  /* === Transitions === */
+  --kode-transition-fast: all 0.15s ease;
+  --kode-transition: all 0.2s ease;
+  --kode-transition-slow: all 0.3s ease;
+
+  /* === Z-index Scale === */
+  --kode-z-dropdown: 100;
+  --kode-z-sticky: 200;
+  --kode-z-modal-backdrop: 900;
+  --kode-z-modal: 1000;
+  --kode-z-tooltip: 1100;
+}
+
+[data-theme="light"] {
+  /* === Primary Colors === */
+  --kode-green: #007700;
+  --kode-green-rgb: 0, 119, 0;
+  --kode-green-dim: #005500;
+  --kode-green-bright: #009900;
+
+  /* === Background Colors === */
+  --kode-bg-darkest: #ffffff;
+  --kode-bg-darker: #f8f8f8;
+  --kode-bg-dark: #f4f4f4;
+  --kode-bg: #f0f0f0;
+  --kode-bg-light: #e8e8e8;
+  --kode-bg-lighter: #e2e2e2;
+  --kode-bg-panel: #d4d4d4;
+  --kode-bg-elevated: #c8c8c8;
+  --kode-bg-hover: #bcbcbc;
+
+  /* === Text Colors === */
+  --kode-text-primary: #007700;
+  --kode-text-secondary: #1a1a1a;
+  --kode-text-tertiary: #444444;
+  --kode-text-muted: #666666;
+  --kode-text-dim: #888888;
+
+  /* === Border Colors === */
+  --kode-border: #cccccc;
+  --kode-border-light: #aaaaaa;
+  --kode-border-green: rgba(0, 119, 0, 0.35);
+  --kode-border-green-focus: rgba(0, 119, 0, 0.7);
+
+  /* === Shadows === */
+  --kode-glow-xs: 0 0 5px rgba(0, 119, 0, 0.12);
+  --kode-glow-sm: 0 0 5px rgba(0, 119, 0, 0.18);
+  --kode-glow-md: 0 0 10px rgba(0, 119, 0, 0.22);
+  --kode-glow-lg: 0 0 14px rgba(0, 119, 0, 0.28);
+  --kode-glow-xl: 0 0 20px rgba(0, 119, 0, 0.2);
+  --kode-shadow-dark: 0 20px 40px rgba(0, 0, 0, 0.08);
+
+  /* === Text Shadows === */
+  --kode-text-glow-sm: 0 0 5px rgba(0, 119, 0, 0.4);
+  --kode-text-glow-md: 0 0 10px rgba(0, 119, 0, 0.4);
+}
