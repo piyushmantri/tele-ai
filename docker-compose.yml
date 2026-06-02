@@ -225,6 +225,31 @@ services:
     ports:
       - "5601:5601"
 
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+
   # ---- tele services ----
   server:
     build:
@@ -273,3 +298,5 @@ volumes:
   pageserver_data: {}
   es_data: {}
   tele_data: {}
+  prometheus_data: {}
+  grafana_data: {}

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { registry } from "../../util/prometheusMetrics.js";
 import { z } from "zod";
 import type {
   AppMetricsDetail,
@@ -173,6 +174,10 @@ function buildAppMetricSummary(
 }
 
 export async function registerMetricsRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/metrics", async (_req, reply) => {
+    reply.header("Content-Type", registry.contentType);
+    return registry.metrics();
+  });
   app.get("/api/metrics", async (_req, reply) => {
     try {
       const dbPingPromise = pingDb();
