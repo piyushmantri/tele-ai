@@ -30,7 +30,7 @@ import { listApplications } from "../db/repos/applications.js";
 import { ensureAppMigrated } from "./appDatabase.js";
 import { logger } from "../util/logger.js";
 
-type HookCtx = { databaseUrl: string; geminiApiKey: string | null };
+type HookCtx = { databaseUrl: string; geminiApiKey: string | null; geminiModel: string | null };
 type HookModule = {
   getContext?: (chatId: string, ctx: HookCtx) => Promise<string>;
   handleSlashCommand?: (
@@ -99,7 +99,7 @@ function makeHandler(
       });
       return;
     }
-    const ctx: HookCtx = { databaseUrl, geminiApiKey: config.GEMINI_API_KEY ?? null };
+    const ctx: HookCtx = { databaseUrl, geminiApiKey: config.GEMINI_API_KEY ?? null, geminiModel: config.GEMINI_MODEL ?? null };
 
     const slashMatch = SLASH_RE.exec(text);
     if (slashMatch && typeof mod.handleSlashCommand === "function") {
