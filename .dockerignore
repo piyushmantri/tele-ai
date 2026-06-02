@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+data
+workspace
+.env
+.env.docker.example
+.git
+tasks
+*.log
+infra/neon/pageserver_config/local
