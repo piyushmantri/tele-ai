@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { makeSql } from "../index.js";
 
 export interface KundaliMatchRow {
   id: string;
@@ -10,7 +10,7 @@ export async function listKundaliMatches(
   databaseUrl: string,
   limit = 50,
 ): Promise<KundaliMatchRow[]> {
-  const sql = neon(databaseUrl);
+  const sql = makeSql(databaseUrl);
   const rows = await sql(
     `SELECT id, data, created_at FROM kundali_matches ORDER BY created_at DESC LIMIT $1`,
     [limit],

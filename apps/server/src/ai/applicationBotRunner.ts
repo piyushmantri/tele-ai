@@ -24,8 +24,8 @@ import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { neon } from "@neondatabase/serverless";
 import { config } from "../config.js";
+import { makeSql } from "../db/index.js";
 import { listApplications } from "../db/repos/applications.js";
 import { ensureAppMigrated } from "./appDatabase.js";
 import { logger } from "../util/logger.js";
@@ -198,7 +198,7 @@ async function tryStartApp(app: {
       await ensureAppMigrated(app.installed_path, app.database_url);
     }
 
-    const sql = neon(app.database_url);
+    const sql = makeSql(app.database_url);
     const rows = await sql(
       `SELECT bot_token, target_chat_id FROM bot_config WHERE id = 'default'`,
       [],

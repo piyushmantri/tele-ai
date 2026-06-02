@@ -4,7 +4,7 @@ import { z } from "zod";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path, { join } from "node:path";
-import { neon } from "@neondatabase/serverless";
+import { makeSql } from "../../db/index.js";
 import {
   createApplication,
   deleteApplication,
@@ -806,7 +806,7 @@ export async function registerApplicationRoutes(
     }
     try {
       await ensureAppMigrated(application.installed_path, application.database_url);
-      const sql = neon(application.database_url);
+      const sql = makeSql(application.database_url);
       const rows = await sql`SELECT bot_token, target_chat_id, last_error, last_connected_at FROM bot_config WHERE id = 'default'`;
       const row = rows[0] ?? null;
       if (!row) return { configured: false, bot_token_masked: null, target_chat_id: null, last_error: null, last_connected_at: null };
@@ -834,7 +834,7 @@ export async function registerApplicationRoutes(
     const body = req.body as Record<string, unknown>;
     try {
       await ensureAppMigrated(application.installed_path, application.database_url);
-      const sql = neon(application.database_url);
+      const sql = makeSql(application.database_url);
       const current = (await sql`SELECT bot_token, target_chat_id FROM bot_config WHERE id = 'default'`)[0] ?? {};
       const newToken = Object.prototype.hasOwnProperty.call(body, "bot_token") ? (body.bot_token ?? null) : (current.bot_token ?? null);
       const newChatId = Object.prototype.hasOwnProperty.call(body, "target_chat_id") ? (body.target_chat_id ?? null) : (current.target_chat_id ?? null);
@@ -855,7 +855,7 @@ export async function registerApplicationRoutes(
     }
     try {
       await ensureAppMigrated(application.installed_path, application.database_url);
-      const sql = neon(application.database_url);
+      const sql = makeSql(application.database_url);
       const rows = await sql`SELECT bot_token FROM bot_config WHERE id = 'default'`;
       const token = rows[0]?.bot_token as string | null;
       if (!token) { reply.code(400); return { ok: false, error: "No bot token saved. Save a token first." }; }
@@ -892,7 +892,7 @@ export async function registerApplicationRoutes(
     }
     const start = Date.now();
     try {
-      const sql = neon(application.database_url);
+      const sql = makeSql(application.database_url);
       const rows = await sql`SELECT 1 as ok`;
       const latency = Date.now() - start;
       const ok =

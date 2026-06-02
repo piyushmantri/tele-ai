@@ -64,6 +64,37 @@ async function sqlWithRetry(strings: TemplateStringsArray | string, ...values: u
 
 export const sql = sqlWithRetry as unknown as NeonQueryFunction<false, false>;
 
+// Per-URL pool cache for external app databases (replaces neon(url))
+const externalPools = new Map<string, pg.Pool>();
+
+function makePoolQuery(pool: pg.Pool) {
+  return async function sqlFn(strings: TemplateStringsArray | string, ...values: unknown[]): Promise<unknown[]> {
+    let text: string;
+    let params: unknown[];
+    if (typeof strings === "string") {
+      text = strings;
+      params = (values[0] as unknown[]) ?? [];
+    } else {
+      text = (strings as TemplateStringsArray).reduce(
+        (acc: string, str: string, i: number) => acc + (i > 0 ? `$${i}` : "") + str,
+        "",
+      );
+      params = values;
+    }
+    const result = await pool.query(text, params);
+    return result.rows;
+  };
+}
+
+export function makeSql(url: string): NeonQueryFunction<false, false> {
+  let p = externalPools.get(url);
+  if (!p) {
+    p = new Pool({ connectionString: url });
+    externalPools.set(url, p);
+  }
+  return makePoolQuery(p) as unknown as NeonQueryFunction<false, false>;
+}
+
 export async function query<T = Record<string, unknown>>(
   text: string,
   params: unknown[] = [],

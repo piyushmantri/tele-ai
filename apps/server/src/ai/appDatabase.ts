@@ -12,7 +12,8 @@
 // first call, then inserts data into the kundali_matches table. Swallows all
 // errors; callers should fire-and-forget via void storeResult({...}).catch(()=>{}).
 
-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
+import type { NeonQueryFunction } from "@neondatabase/serverless";
+import { makeSql } from "../db/index.js";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { logger } from "../util/logger.js";
@@ -23,7 +24,7 @@ const migratedKeys = new Set<string>(); // "<installedPath>:<databaseUrl>"
 function externalClient(url: string): NeonQueryFunction<false, false> {
   let c = clientCache.get(url);
   if (!c) {
-    c = neon(url) as NeonQueryFunction<false, false>;
+    c = makeSql(url) as NeonQueryFunction<false, false>;
     clientCache.set(url, c);
   }
   return c;
