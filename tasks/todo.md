@@ -466,7 +466,7 @@ Named volumes (persisted): `minio_data`, `safekeeper1_data`, `safekeeper2_data`,
   - The `compute1` image's pre-installed extensions include `pgcrypto`, `pg_trgm`, and several others (Neon's compute is a Postgres-with-extensions distribution). `gen_random_uuid()` works out of the box; Phase 6's verification confirms this.
 
 ### Phase 6: Verification + docs
-- [ ] 11. **Live smoke test (replaces REV 1's pre-compose smoke test)** — after `docker compose up -d`, exec into the running compute and verify:
+- [ ] 11. **Live smoke test (replaces REV 1's pre-compose smoke test)** — DEFERRED: requires `docker compose up` (user has not started the stack yet). After `docker compose up -d`, exec into the running compute and verify:
   ```bash
   docker compose exec compute1 psql -U cloud_admin -d postgres -c '\dx'
   # Expect pgcrypto to be in the list. If not:
