@@ -505,3 +505,19 @@ export interface UpdatePricingOverrideBody {
   override_input_per_1m_usd: number | null;
   override_output_per_1m_usd: number | null;
 }
+
+export interface ApplicationMessage {
+  id: string;
+  application_id: string;
+  tg_chat_id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface ApplicationChat {
+  tg_chat_id: string;
+  message_count: number;
+  last_at: string;
+  last_preview: string;
+}

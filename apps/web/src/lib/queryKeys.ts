@@ -23,6 +23,8 @@ export const qk = {
   applicationsRegistry: ["applications", "registry"] as const,
   applicationAssignments: (id: string) => ["applications", id, "assignments"] as const,
   applicationFiles: (id: string) => ["applications", id, "files"] as const,
+  applicationChats: (id: string) => ["applications", id, "chats"] as const,
+  applicationChatMessages: (id: string, tgChatId: string) => ["applications", id, "chats", tgChatId] as const,
   applicationMatches: (id: string) => ["applications", id, "matches"] as const,
   applicationBotConfig: (id: string) => ["applications", id, "bot-config"] as const,
   applicationGitStatus: (id: string) => ["applications", id, "git-status"] as const,

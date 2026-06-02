@@ -28,6 +28,7 @@ import { config } from "../config.js";
 import { makeSql } from "../db/index.js";
 import { listApplications } from "../db/repos/applications.js";
 import { ensureAppMigrated } from "./appDatabase.js";
+import { insertMessage } from "../db/repos/applicationMessages.js";
 import { logger } from "../util/logger.js";
 
 type HookCtx = { databaseUrl: string; geminiApiKey: string | null; geminiModel: string | null };
@@ -108,6 +109,8 @@ function makeHandler(
       try {
         const reply = await mod.handleSlashCommand(cmd, args, chatId, ctx);
         await msg.reply({ message: reply });
+        insertMessage(appId, chatId, "user", text).catch(() => {});
+        insertMessage(appId, chatId, "assistant", reply).catch(() => {});
       } catch (err) {
         logger.warn("applicationBotRunner: slash error", {
           appId,
@@ -155,7 +158,10 @@ function makeHandler(
         }
       }
       reply = reply.replace(CALL_RE, "").replace(/\n{3,}/g, "\n\n").trim();
-      await msg.reply({ message: reply || "No response generated." });
+      const finalReply = reply || "No response generated.";
+      await msg.reply({ message: finalReply });
+      insertMessage(appId, chatId, "user", text).catch(() => {});
+      insertMessage(appId, chatId, "assistant", finalReply).catch(() => {});
     } catch (err) {
       logger.warn("applicationBotRunner: LLM error", { appId, err: String(err) });
       await msg.reply({ message: "Error generating reply. Please try again." });

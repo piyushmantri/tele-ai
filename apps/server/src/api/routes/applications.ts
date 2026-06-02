@@ -26,6 +26,7 @@ import {
   saveFileLocally,
 } from "../../db/repos/applicationFiles.js";
 import { listKundaliMatches } from "../../db/repos/kundaliMatches.js";
+import { listAppChats, listChatMessages } from "../../db/repos/applicationMessages.js";
 import { ensureAppMigrated } from "../../ai/appDatabase.js";
 import {
   createRegistryRow,
@@ -967,5 +968,21 @@ export async function registerApplicationRoutes(
       reply.code(500);
       return { ok: false, error: message };
     }
+  });
+
+  app.get("/api/applications/:id/chats", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const app = await getApplication(id);
+    if (!app) { reply.code(404); return { error: "Not found" }; }
+    const chats = await listAppChats(id);
+    return { chats };
+  });
+
+  app.get("/api/applications/:id/chats/:tgChatId", async (req, reply) => {
+    const { id, tgChatId } = req.params as { id: string; tgChatId: string };
+    const application = await getApplication(id);
+    if (!application) { reply.code(404); return { error: "Not found" }; }
+    const messages = await listChatMessages(id, tgChatId);
+    return { messages };
   });
 }
