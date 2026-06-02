@@ -255,10 +255,10 @@ services:
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
-      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-adminpassword}
-      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-tele}
-      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-tele}
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-local-dev-token}
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword123
+      DOCKER_INFLUXDB_INIT_ORG: tele
+      DOCKER_INFLUXDB_INIT_BUCKET: tele
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: local-dev-token
     volumes:
       - influxdb_data:/var/lib/influxdb2
     ports:
@@ -288,10 +288,10 @@ services:
       WORKSPACE_ROOT: /data/workspace
       SESSION_FILE: /data/session.txt
       INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-local-dev-token}
-      INFLUXDB_ORG: ${INFLUXDB_ORG:-}
-      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-}
-      INFLUXDB_VERSION: ${INFLUXDB_VERSION:-}
+      INFLUXDB_TOKEN: local-dev-token
+      INFLUXDB_ORG: tele
+      INFLUXDB_BUCKET: tele
+      INFLUXDB_VERSION: v2
     volumes:
       - tele_data:/data
       - tele_data:/app/data
