@@ -909,4 +909,63 @@ export async function registerApplicationRoutes(
       return { ok: false, latency_ms: Date.now() - start, error: message };
     }
   });
+
+  // GET /api/applications/:id/git-status
+  // Runs `git fetch` then counts commits the local clone is behind the remote.
+  // Only valid for git-sourced apps with an installed_path.
+  app.get("/api/applications/:id/git-status", async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const application = await getApplication(id);
+    if (!application) { reply.code(404); return { error: "not found" }; }
+    if (!application.installed_path) {
+      reply.code(400); return { error: "no installed_path" };
+    }
+
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const exec = promisify(execFile);
+    const cwd = application.installed_path;
+
+    try {
+      await exec("git", ["fetch", "--quiet"], { cwd });
+      const { stdout: behindRaw } = await exec(
+        "git", ["rev-list", "--count", "HEAD..@{u}"], { cwd }
+      );
+      const behindBy = parseInt(behindRaw.trim(), 10);
+      return { updatesAvailable: behindBy > 0, behindBy };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn("git-status failed", { application_id: id, message });
+      reply.code(500);
+      return { error: message };
+    }
+  });
+
+  // POST /api/applications/:id/update
+  // Runs `git pull --ff-only` in the installed_path.
+  app.post("/api/applications/:id/update", async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const application = await getApplication(id);
+    if (!application) { reply.code(404); return { error: "not found" }; }
+    if (!application.installed_path) {
+      reply.code(400); return { error: "no installed_path" };
+    }
+
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const exec = promisify(execFile);
+    const cwd = application.installed_path;
+
+    try {
+      const { stdout } = await exec("git", ["pull", "--ff-only"], { cwd });
+      logger.info("git pull succeeded", { application_id: id, stdout: stdout.trim() });
+      eventBus.emit({ type: "application:changed", payload: { application } });
+      return { ok: true, output: stdout.trim() };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn("git pull failed", { application_id: id, message });
+      reply.code(500);
+      return { ok: false, error: message };
+    }
+  });
 }

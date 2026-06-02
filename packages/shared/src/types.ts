@@ -111,6 +111,7 @@ export interface Application {
   enabled: boolean;
   registry_slug: string | null;
   installed_path: string | null;
+  source_type: "git" | "local" | null;
   created_at: string;
 }
 

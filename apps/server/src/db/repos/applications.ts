@@ -2,17 +2,19 @@ import type { Application, ApplicationChatAssignment } from "@tele/shared";
 import { query } from "../index.js";
 
 const COLS =
-  "id, slug, name, type, description, system_prompt, knowledge_base, database_url, is_global_default, enabled, registry_slug, installed_path, created_at";
+  "a.id, a.slug, a.name, a.type, a.description, a.system_prompt, a.knowledge_base, a.database_url, a.is_global_default, a.enabled, a.registry_slug, a.installed_path, a.created_at, r.source_type";
+
+const FROM = "applications a LEFT JOIN application_registry r ON r.slug = a.registry_slug";
 
 export async function listApplications(): Promise<Application[]> {
   return query<Application>(
-    `SELECT ${COLS} FROM applications ORDER BY created_at ASC`,
+    `SELECT ${COLS} FROM ${FROM} ORDER BY a.created_at ASC`,
   );
 }
 
 export async function getApplication(id: string): Promise<Application | null> {
   const rows = await query<Application>(
-    `SELECT ${COLS} FROM applications WHERE id = $1`,
+    `SELECT ${COLS} FROM ${FROM} WHERE a.id = $1`,
     [id],
   );
   return rows[0] ?? null;
@@ -22,7 +24,7 @@ export async function getApplicationBySlug(
   slug: string,
 ): Promise<Application | null> {
   const rows = await query<Application>(
-    `SELECT ${COLS} FROM applications WHERE slug = $1`,
+    `SELECT ${COLS} FROM ${FROM} WHERE a.slug = $1`,
     [slug],
   );
   return rows[0] ?? null;
@@ -32,7 +34,7 @@ export async function getApplicationByRegistrySlug(
   registrySlug: string,
 ): Promise<Application | null> {
   const rows = await query<Application>(
-    `SELECT ${COLS} FROM applications WHERE registry_slug = $1 LIMIT 1`,
+    `SELECT ${COLS} FROM ${FROM} WHERE a.registry_slug = $1 LIMIT 1`,
     [registrySlug],
   );
   return rows[0] ?? null;

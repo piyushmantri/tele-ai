@@ -25,6 +25,7 @@ export const qk = {
   applicationFiles: (id: string) => ["applications", id, "files"] as const,
   applicationMatches: (id: string) => ["applications", id, "matches"] as const,
   applicationBotConfig: (id: string) => ["applications", id, "bot-config"] as const,
+  applicationGitStatus: (id: string) => ["applications", id, "git-status"] as const,
   chatApplications: (chatId: string) => ["chats", chatId, "applications"] as const,
 };
 

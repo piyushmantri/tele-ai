@@ -187,6 +187,24 @@ function Overview({ app }: { app: Application }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.applications }),
   });
 
+  const isGit = app.source_type === "git" && app.installed_path;
+
+  const gitStatusQ = useQuery({
+    queryKey: qk.applicationGitStatus(app.id),
+    queryFn: () => api.get<{ updatesAvailable: boolean; behindBy: number }>(`/api/applications/${app.id}/git-status`),
+    enabled: !!isGit,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+
+  const gitUpdate = useMutation({
+    mutationFn: () => api.post(`/api/applications/${app.id}/update`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.applicationGitStatus(app.id) });
+      qc.invalidateQueries({ queryKey: qk.applications });
+    },
+  });
+
   const dirty = descDraft !== app.description;
 
   return (
@@ -206,6 +224,24 @@ function Overview({ app }: { app: Application }) {
               }
               disabled={toggle.isPending}
             />
+            {isGit && gitStatusQ.data?.updatesAvailable && (
+              <Button
+                variant="filled"
+                size="sm"
+                onClick={() => gitUpdate.mutate()}
+                disabled={gitUpdate.isPending}
+              >
+                {gitUpdate.isPending
+                  ? "Updating…"
+                  : `↑ Update available (${gitStatusQ.data.behindBy} commit${gitStatusQ.data.behindBy === 1 ? "" : "s"})`}
+              </Button>
+            )}
+            {isGit && gitUpdate.isSuccess && (
+              <span className="text-xs" style={{ color: "var(--kode-success)" }}>Updated ✓</span>
+            )}
+            {isGit && gitUpdate.isError && (
+              <span className="text-xs" style={{ color: "var(--kode-error)" }}>{String(gitUpdate.error)}</span>
+            )}
           </div>
           <div className="mt-1 text-xs" style={{ color: "var(--kode-text-muted)" }}>
             slug: <code className="font-mono">{app.slug}</code>
