@@ -5,3 +5,5 @@ data/
 *.session
 .DS_Store
 *.tsbuildinfo
+infra/neon/pageserver_config/pageserver.pid
+infra/neon/pageserver_config/tenants/
