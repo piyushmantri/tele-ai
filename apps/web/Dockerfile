@@ -13,7 +13,7 @@ COPY apps/web/package.json apps/web/
 RUN npm config set registry https://registry.npmjs.org/ && \
     pnpm config set registry https://registry.npmjs.org/ && \
     rm pnpm-lock.yaml && \
-    pnpm install
+    pnpm install --ignore-scripts
 COPY apps/web/ apps/web/
 RUN pnpm --filter @tele/shared build && pnpm --filter @tele/web build
 
