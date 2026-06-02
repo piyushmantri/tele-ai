@@ -12,7 +12,8 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN npm config set registry https://registry.npmjs.org/ && \
     pnpm config set registry https://registry.npmjs.org/ && \
-    pnpm install --no-frozen-lockfile
+    rm pnpm-lock.yaml && \
+    pnpm install
 COPY apps/web/ apps/web/
 RUN pnpm --filter @tele/shared build && pnpm --filter @tele/web build
 
