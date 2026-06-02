@@ -295,6 +295,8 @@ services:
     volumes:
       - tele_data:/data
       - tele_data:/app/data
+      - /Users/piyush.mantri/spaps/kundali:/apps/kundali:ro
+      - /Users/piyush.mantri/spaps/counseller:/apps/counseller:ro
     ports:
       - "3000:3000"
 

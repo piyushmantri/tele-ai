@@ -6,6 +6,9 @@ const COLS =
 
 const FROM = "applications a LEFT JOIN application_registry r ON r.slug = a.registry_slug";
 
+const INSERT_RETURNING =
+  "id, slug, name, type, description, system_prompt, knowledge_base, database_url, is_global_default, enabled, registry_slug, installed_path, created_at, null as source_type";
+
 export async function listApplications(): Promise<Application[]> {
   return query<Application>(
     `SELECT ${COLS} FROM ${FROM} ORDER BY a.created_at ASC`,
@@ -55,7 +58,7 @@ export async function createApplication(input: {
   const rows = await query<Application>(
     `INSERT INTO applications (slug, name, type, description, system_prompt, knowledge_base, database_url, is_global_default, registry_slug, installed_path)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING ${COLS}`,
+     RETURNING ${INSERT_RETURNING}`,
     [
       input.slug,
       input.name,
@@ -128,7 +131,7 @@ export async function updateApplication(
   if (sets.length === 0) return getApplication(id);
   vals.push(id);
   const rows = await query<Application>(
-    `UPDATE applications SET ${sets.join(", ")} WHERE id = $${i} RETURNING ${COLS}`,
+    `UPDATE applications SET ${sets.join(", ")} WHERE id = $${i} RETURNING ${INSERT_RETURNING}`,
     vals,
   );
   return rows[0] ?? null;
