@@ -1,0 +1,21 @@
+{
+  "name": "kodeui",
+  "version": "1.0.0",
+  "description": "Kode UI component library",
+  "private": false,
+  "main": "./dist/kodeui.umd.cjs",
+  "module": "./dist/kodeui.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/kodeui.js",
+      "require": "./dist/kodeui.umd.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./dist/kodeui.css": "./dist/kodeui.css"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}
