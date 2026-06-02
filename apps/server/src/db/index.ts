@@ -1,34 +1,51 @@
-import { neon, neonConfig, type NeonQueryFunction } from "@neondatabase/serverless";
+import pg from "pg";
 import { config } from "../config.js";
 import { logger } from "../util/logger.js";
 import { incCounter } from "../util/metrics.js";
+import type { NeonQueryFunction } from "@neondatabase/serverless";
 
-// When DATABASE_URL points at a local Neon compute (compose service name),
-// re-route HTTP /sql calls and disable secure-WS. Bypassed for cloud Neon
-// DSNs because NEON_FETCH_ENDPOINT is only set inside docker-compose.
-if (process.env.NEON_FETCH_ENDPOINT) {
-  neonConfig.fetchEndpoint = process.env.NEON_FETCH_ENDPOINT;
-  neonConfig.useSecureWebSocket = false;
-  neonConfig.poolQueryViaFetch = true;
-}
-
-const _sql = neon(config.DATABASE_URL);
+const { Pool } = pg;
+const pool = new Pool({ connectionString: config.DATABASE_URL });
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 600;
 
 function isTransientError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes("fetch failed") || msg.includes("ECONNRESET") || msg.includes("ETIMEDOUT") || msg.includes("connecting to database");
+  const code = (err as NodeJS.ErrnoException)?.code ?? "";
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("ECONNRESET") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("connecting to database") ||
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "ETIMEDOUT"
+  );
 }
 
-// Wraps the neon tagged-template function with exponential-backoff retry.
-// All repos use sql`...` directly, so retrying here covers every query.
-async function sqlWithRetry(strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown[]> {
+// Wraps pg.Pool query with retry, exposing both tagged-template and
+// parameterized-call signatures compatible with NeonQueryFunction.
+async function sqlWithRetry(strings: TemplateStringsArray | string, ...values: unknown[]): Promise<unknown[]> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      return await (_sql as (s: TemplateStringsArray, ...v: unknown[]) => Promise<unknown[]>)(strings, ...values);
+      let text: string;
+      let params: unknown[];
+      if (typeof strings === "string") {
+        // sql("SELECT...", params) form
+        text = strings;
+        params = (values[0] as unknown[]) ?? [];
+      } else {
+        // sql`SELECT * WHERE id = ${id}` tagged-template form
+        text = (strings as TemplateStringsArray).reduce(
+          (acc: string, str: string, i: number) => acc + (i > 0 ? `$${i}` : "") + str,
+          "",
+        );
+        params = values;
+      }
+      const result = await pool.query(text, params);
+      return result.rows;
     } catch (err) {
       lastErr = err;
       if (!isTransientError(err) || attempt === MAX_RETRIES - 1) throw err;
@@ -54,8 +71,8 @@ export async function query<T = Record<string, unknown>>(
   let lastErr: unknown;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const result = await _sql(text, params);
-      return result as T[];
+      const result = await pool.query(text, params);
+      return result.rows as T[];
     } catch (err) {
       lastErr = err;
       if (!isTransientError(err) || attempt === MAX_RETRIES - 1) throw err;

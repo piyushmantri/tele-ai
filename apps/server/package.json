@@ -21,10 +21,12 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^0.10.1",
     "@tele/shared": "workspace:*",
+    "@types/pg": "^8.20.0",
     "cron-parser": "^5.5.0",
     "dotenv": "^16.4.5",
     "fastify": "^5.0.0",
     "node-cron": "^3.0.3",
+    "pg": "^8.21.0",
     "prom-client": "^15.1.3",
     "telegram": "^2.26.6",
     "zod": "^3.23.8"

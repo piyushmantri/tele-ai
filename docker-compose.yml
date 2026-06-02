@@ -250,6 +250,25 @@ services:
     ports:
       - "3001:3000"
 
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-adminpassword}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-tele}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-tele}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-local-dev-token}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   # ---- tele services ----
   server:
     build:
@@ -260,7 +279,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://cloud_admin@compute1:55433/postgres
-      NEON_FETCH_ENDPOINT: http://compute1:3080/sql
       TG_API_ID: ${TG_API_ID}
       TG_API_HASH: ${TG_API_HASH}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -269,8 +287,8 @@ services:
       PORT: 3000
       WORKSPACE_ROOT: /data/workspace
       SESSION_FILE: /data/session.txt
-      INFLUXDB_URL: ${INFLUXDB_URL:-}
-      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-}
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-local-dev-token}
       INFLUXDB_ORG: ${INFLUXDB_ORG:-}
       INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-}
       INFLUXDB_VERSION: ${INFLUXDB_VERSION:-}
@@ -300,3 +318,4 @@ volumes:
   tele_data: {}
   prometheus_data: {}
   grafana_data: {}
+  influxdb_data: {}
