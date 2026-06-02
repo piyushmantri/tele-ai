@@ -19,7 +19,7 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     pnpm install
 COPY apps/server/ apps/server/
 RUN pnpm --filter @tele/shared build && pnpm --filter @tele/server build
-RUN pnpm --filter @tele/server deploy --prod /deploy
+RUN pnpm --filter @tele/server deploy --prod --legacy /deploy
 
 # ---- runtime stage
 FROM node:20-alpine
