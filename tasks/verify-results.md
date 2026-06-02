@@ -1,152 +1,151 @@
-# Verify: Counseller (Admission Counseling) tele application (2026-06-01)
+# Verify: Dockerize tele monorepo (local Neon stack + Elastic stack)
 
-## Acceptance Criteria
+Date: 2026-06-02
+Branch: `kode`
+Commit under test: `1e322c4` — "Add Docker setup: local Neon stack + Elastic stack + server/web containers"
+Verifier mode: static checks only — `docker compose up` was NOT run (user explicitly deferred).
 
-### AC1 — Hook contract — PASS
-Evidence: `~/spaps/counseller/src/hook.ts`
-- Exports `getContext(chatId, ctx?)` at line 141 — signature `(chatId: string, ctx?: HookContext) => Promise<string>`.
-- Exports `handleSlashCommand(cmd, args, chatId, ctx?)` at line 188 — signature `(cmd, args, chatId, ctx?) => Promise<string>`.
-- `HookContext` interface (line 105-110) includes `databaseUrl?: string | null` alongside `emit`, `emitTimeseries`, `storeResult`.
-- No-databaseUrl branch handled gracefully: `getContext` (line 152-156) returns `NOT_CONFIGURED_CONTEXT`; `handleSlashCommand` (line 198-201) returns `NOT_CONFIGURED_SLASH`.
+## Acceptance criteria
 
-### AC2 — Tele-side change applied — PASS
-Evidence:
-- `~/spaps/tele/apps/server/src/ai/applications.ts:39` — `databaseUrl?: string | null` in `CodeAppHookContext`.
-- `~/spaps/tele/apps/server/src/ai/applications.ts:66` — `databaseUrl: databaseUrl ?? null` passed in `loadCodeAppContext`.
-- `~/spaps/tele/apps/server/src/ai/applicationSlash.ts:21` — `databaseUrl?: string | null` in interface.
-- `~/spaps/tele/apps/server/src/ai/applicationSlash.ts:83` — `databaseUrl: fresh.database_url ?? null` in ctx construction.
-- Command `pnpm -F @tele/server build` exited 0 (no errors).
+### Criterion 1 — Full stack up (13 containers reach `healthy`/running)
+**PASS (static portion) — DEFERRED (live boot portion)**
 
-### AC3 — Idempotent migrations — PASS
-Evidence: `~/spaps/counseller/src/db/migrate.ts`
-- Lines 28-34: splits on `\n`, strips `--.*$` comments, splits on `;`, trims, filters empties.
-- Line 36: executes each statement via `sql(stmt + ";", [])` (lesson 2026-04-28).
-- Line 8 + 11 + 40: in-process `migratedUrls` Set memo skips reapplication within process lifetime.
-- Lines 13-21: tracks via `schema_migrations` table + per-file `applied` Set check.
+Static verification:
+- `docker compose config --services` lists 14 services: `compute1, elasticsearch, filebeat, kibana, logstash, minio, minio_create_buckets, pageserver, safekeeper1, safekeeper2, safekeeper3, server, storage_broker, web`.
+- `minio_create_buckets` is a one-shot bootstrap (exits 0 after creating the MinIO bucket) → 13 long-running containers as the acceptance criterion expects.
+- `docker compose config --quiet` exits 0 → YAML is valid, all interpolations resolve, image refs parse.
+- Healthchecks present on `minio`, `compute1`, `elasticsearch` (compose lines 14/174/190). Server healthcheck is defined in `apps/server/Dockerfile` line 30-31 (`HEALTHCHECK --interval=10s ... curl -fsS http://localhost:3000/api/health`) — compose inherits it, and `web` correctly waits on `server: { condition: service_healthy }` (compose line 257-259).
+- `depends_on` chains correct: server→compute1 (healthy), web→server (healthy), logstash/kibana→elasticsearch (healthy), filebeat→logstash (started), minio_create_buckets→minio (healthy), safekeepers/pageserver→minio_create_buckets+storage_broker.
 
-`0001_init.sql` — all `CREATE TABLE IF NOT EXISTS`, all FKs (lines 15, 27, 49, 56), `CHECK (marks IS NOT NULL OR rank IS NOT NULL OR percentile IS NOT NULL)` on exam_attempts (line 23), `preferences.chat_id` PRIMARY KEY (line 27).
+Live boot (`docker compose up -d --build`, verify all 13 healthy within 180s): **DEFERRED to user.**
 
-`0002_seed_colleges.sql` — every INSERT uses `ON CONFLICT (id) DO NOTHING` (confirmed by `grep ON CONFLICT` matching all of 428 cutoff INSERTs + 107 branch INSERTs + 36 college INSERTs). State exams (MHT_CET, KCET, AP_EAMCET, WBJEE) have `home_state_advantage=true` in their cutoff rows (spot-checked: coep_pune MHT row has `true`; rvce KCET row has `true`; iiit_hyd_ap AP_EAMCET row has `true`; jadavpur_univ WBJEE row has `true`).
+### Criterion 2 — Migrations applied
+**DEFERRED (requires `docker compose up`)**
 
-`0003_bot_config.sql:6` — `CHECK (id = 'default')` enforces single-row table; seed `INSERT ... ON CONFLICT (id) DO NOTHING` on line 16.
+Static verification:
+- `apps/server/src/db/migrations/` contains **26 SQL files** (NOT 27 as the acceptance line states — numbering goes 0001…0027 with `0024_*` skipped). This is a documentation drift in the acceptance criterion, not an implementation defect: every migration in the directory will be applied by `migrate.ts` (which globs `*.sql`).
+- `apps/server/Dockerfile:26` copies them to `dist/db/migrations` matching `migrate.ts:8`'s `__dirname + "/migrations"` resolution.
 
-### AC4 — Counselor flow (static analysis only — no live Telegram run) — PASS
-Evidence: `~/spaps/counseller/src/hook.ts:167-172` (`getContext`) assembles `PERSONA_TEXT + formatStudentProfile + METHODOLOGY_TEXT + nextStepInstruction` (covers [COUNSELOR-PERSONA], [STUDENT-PROFILE], [METHODOLOGY], [NEXT-STEP]).
+Live verification: `docker compose exec compute1 psql -U cloud_admin -d postgres -c '\dt'` — DEFERRED.
 
-`~/spaps/counseller/src/engine/prompts.ts:3-17` — `PERSONA_TEXT` explicitly instructs the AI to emit slash commands as `CALL: /add-exam {...}` and `CALL: /set-preferences {...}` lines.
+### Criterion 3 — `/api/health` returns 200
+**PASS (static) — DEFERRED (live)**
 
-`~/spaps/counseller/src/engine/prompts.ts:87-130` — `nextStepInstruction` is a decision tree:
-1. No student / no attempts → "ask which exams"
-2. Attempt missing unit value → "ask for the missing percentile/rank/marks"
-3. No prefs → "ask about preferences"
-4. Empty branches → "ask branches"
-5. No location + no home_state → "ask location"
-6. All set → "suggest /recommend"
+Evidence: `apps/server/src/api/index.ts:57` registers `app.get("/api/health", ...)`. Endpoint is in the PUBLIC_PATHS set at line 28 (no auth required). Dockerfile healthcheck pinned to this path.
 
-Caveat: live Telegram round-trip not exercised here (test environment lacks bot token + Neon URL); the static contract is sound.
+### Criterion 4 — Web reverse proxy on `:8080`
+**PASS (static) — DEFERRED (live)**
 
-### AC5 — 8-exam coverage — PASS
+Evidence (`apps/web/nginx.conf`):
+- `/api/` → `proxy_pass http://backend` (line 6) where `upstream backend { server server:3000; }` (line 1)
+- `/ws` → `proxy_pass http://backend` with `Upgrade`/`Connection: upgrade` headers + `proxy_http_version 1.1` (lines 9-12) → WS upgrade correctly configured
+- `/` → `try_files $uri /index.html` (line 13) → SPA fallback
+- `client_max_body_size 2m` (line 5)
+- Web service publishes `8080:80` (compose line 260-261).
+
+### Criterion 5 — Logs in Kibana with parsed `app.*` fields
+**DEFERRED (requires `docker compose up`)**
+
+Static verification:
+- `infra/elastic/filebeat.yml`: container input on `/var/lib/docker/containers/*/*.log`, `add_docker_metadata`, `decode_json_fields` with `target: app`, output to `logstash:5044`.
+- `infra/elastic/logstash.conf`: beats input on 5044, maps `[app][t]` → `@timestamp`, outputs to `tele-logs-%{+YYYY.MM.dd}` index on `http://elasticsearch:9200`.
+- Filebeat correctly bind-mounts `/var/lib/docker/containers` and `/var/run/docker.sock` (compose lines 213-215).
+
+### Criterion 6 — Restart persistence
+**PASS (static) — DEFERRED (live)**
+
+Evidence: named volumes declared for `tele_data` (server `/data` + `/app/data` double mount, lines 247-249), plus `pageserver_data`, `safekeeper{1,2,3}_data`, `minio_data` ensure Neon storage persists. `SESSION_FILE: /data/session.txt` (line 246) writes the Telegram session to the named volume.
+
+### Criterion 7 — `down` vs `down -v`
+**PASS (by construction)** — all stateful services use named volumes (not bind mounts to host paths), so `down` preserves data and `down -v` wipes it. No verification needed beyond static.
+
+### Criterion 8 — Type-check passes
+**PARTIAL PASS — server PASS, web FAIL (pre-existing, NOT introduced by Docker work)**
+
+Server:
+```bash
+$ cd apps/server && npx tsc -p tsconfig.json --noEmit
+exit code: 0
 ```
-JEE_MAIN:     144 occurrences
-JEE_ADVANCED:  96 occurrences
-MHT_CET:       36 occurrences
-BITSAT:        36 occurrences
-VITEEE:        24 occurrences
-KCET:          36 occurrences
-AP_EAMCET:     32 occurrences
-WBJEE:         24 occurrences
+No errors. The single change to `apps/server/src/db/index.ts` (adding `neonConfig` import + 3 lines) compiles cleanly.
+
+Web:
+```bash
+$ cd apps/web && npx tsc -b
+… 104 error lines (TS2307 'kodeui' module not found + TS7006 implicit-any on event handlers) …
 ```
-All > 0; each covers GEN + OBC across 2023 + 2024 (confirmed by spot-checking the sample INSERTs). Total cutoff INSERTs = 428.
+**These errors pre-exist on HEAD~1** (commit `2d1fb8f`, the commit BEFORE the Docker work). Verified by `git checkout HEAD~1 -- apps/web && cd apps/web && npx tsc -b 2>&1 | wc -l` → also `104` lines of identical errors. The Docker commit touched ZERO files under `apps/web/src/`; only `apps/web/Dockerfile` and `apps/web/nginx.conf` were added. So while the criterion as literally written ("exit 0") fails, the Dockerization itself introduced no new TS errors.
 
-### AC6 — 23505 → friendly message (slash) and 409 (web) — PASS
-Evidence:
-- `~/spaps/counseller/src/hook.ts:225-227` — catches `err.code === "23505"` and returns `"That record already exists. Try /list-exams to see what's stored, or /set-preferences to update."`.
-- `~/spaps/counseller/server/src/api/routes/exams.ts:71-72` — `pgErr.code === "23505"` → `reply.code(409)`.
-- `~/spaps/counseller/server/src/api/routes/preferences.ts:58-59` — `pgErr.code === "23505"` → `reply.code(409)`.
+### Criterion 9 — Boot-time config validation
+**PASS (by construction)** — `config.ts` uses zod and process exits non-zero on parse failure. `.env.docker.example` enumerates `TG_API_ID`, `TG_API_HASH`, `GEMINI_API_KEY`, `DASHBOARD_PASSWORD` as required (line 1 comment: "server will refuse to boot if any of these are missing or empty"). Compose passes them via `${VAR}` interpolation with no fallback default for the secrets.
 
-### AC7 — List/get split — PASS
-Evidence:
-- `~/spaps/counseller/server/src/api/routes/recommendations.ts:28-37` — trimmed projection: `{college_id, college_name, branch_name, exam_used, student_value, cutoff_value, margin, fit_reasons}` (no raw cutoff arrays).
-- `~/spaps/counseller/server/src/api/routes/colleges.ts:17-27` — `/colleges/:id` returns full payload (college + branches + cutoffs) via parallel queries; 404 when `getCollege` returns null (which filters `active=true`).
+### Criterion 10 — Driver works unchanged (minimal diff to `db/index.ts`)
+**PASS**
 
-### AC8 — Standalone web exists — PASS
-Evidence:
+```diff
+$ git diff HEAD~1 apps/server/src/db/index.ts
+-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
++import { neon, neonConfig, type NeonQueryFunction } from "@neondatabase/serverless";
+ import { config } from "../config.js";
+ import { logger } from "../util/logger.js";
+ import { incCounter } from "../util/metrics.js";
+
++// When DATABASE_URL points at a local Neon compute (compose service name),
++// re-route HTTP /sql calls and disable secure-WS. Bypassed for cloud Neon
++// DSNs because NEON_FETCH_ENDPOINT is only set inside docker-compose.
++if (process.env.NEON_FETCH_ENDPOINT) {
++  neonConfig.fetchEndpoint = process.env.NEON_FETCH_ENDPOINT;
++  neonConfig.useSecureWebSocket = false;
++  neonConfig.poolQueryViaFetch = true;
++}
++
+ const _sql = neon(config.DATABASE_URL);
 ```
-ls ~/spaps/counseller/web/src/pages/
-  BotConfig.tsx
-  CollegeDetail.tsx
-  Colleges.tsx
-  StudentDetail.tsx
-  Students.tsx
-```
-`BotConfig.tsx:128` — renders `Test Connection` button (POSTs to `/config/bot/test`, line 51).
 
-Typechecks: `npx tsc --noEmit` exits 0 for `~/spaps/counseller/` (root), `~/spaps/counseller/web/`, and `~/spaps/counseller/server/`.
+Confirmed: ONLY `neonConfig` added to the import + a 3-line env-guarded config block. `neon(config.DATABASE_URL)` call site UNCHANGED. Every `_sql` use, the `query()` wrapper, the `sqlWithRetry` retry logic, all unchanged. `git diff HEAD~1 HEAD --name-only` shows zero `db/repos/*.ts` files modified. Production cloud-Neon DSNs unaffected (env var only set inside docker-compose).
 
-Live `npm run dev` not exercised here (would require DATABASE_URL); compilation passes for all three packages.
+## Step 11 — Live pgcrypto / migrations smoke test
+**DEFERRED — requires `docker compose up`**
 
-### AC9 — README documents required sections — PASS
-Evidence: `~/spaps/counseller/README.md`
-- (a) **Tele-side prerequisite** — section heading line 22, body line 24 documents the ctx.databaseUrl widening + back-compat.
-- (b) **Data caveat** — section "Cutoff data" line 78, body line 80 documents 2023+2024 snapshot, ~30 colleges, ~456 rows, edit-via-new-migration.
-- (c) **Heuristic recommender** — section "Recommender is heuristic, not predictive" line 82.
-- (d) **JEE Advanced gating note** — line 88 explicitly calls out the top-~2.5L requirement and that the recommender does NOT enforce it.
-- (e) **Edit-seed-via-new-migration** — line 80 explicit guidance.
-- (f) **Standalone Bot Mode setup steps** — section "Configure the standalone bot" line 52, numbered steps for @BotFather → save token → Test Connection → target chat.
-- Mode-isolation warning at line 95: "Do not run plugin mode and standalone bot mode simultaneously for the same Telegram chat."
+Per task instruction explicitly: "Mark step 11 (pgcrypto live check) as 'requires docker compose up — deferred to user'".
 
-### AC10 — Bot config persistence + masking — PASS
-Evidence: `~/spaps/counseller/server/src/api/routes/botConfig.ts`
-- Line 29: `bot_token_masked: token ? "•••" + token.slice(-4) : null` — masked, never full token.
-- Line 47-56: PUT handler uses `Object.prototype.hasOwnProperty.call(body, k)` to decide token/chat/secret writes; absent key → keep current; explicit `null` → cleared via `(body.bot_token as string | null) ?? null` (so `null` becomes `null`).
-- Line 57-65: UPSERT on `id='default'`, calls `restartBot()` after write (line 66) which stops + restarts the loop. With `null` token, `restartBot` → `startBotIfConfigured` → returns early (no token), effectively stopping the bot.
+## Required files inventory
 
-### AC11 — Test Connection endpoint — PASS
-Evidence: `~/spaps/counseller/server/src/api/routes/botConfig.ts:71-100`
-- Line 73: reads stored token (not from request body).
-- Line 81: calls `https://api.telegram.org/bot${token}/getMe`.
-- Line 87-89: on success, `UPDATE bot_config SET last_connected_at = now(), last_error = NULL`; returns `{ok: true, bot_username: data.result?.username}`.
-- Line 90-93: on Telegram-level failure, `UPDATE bot_config SET last_error = ${errMsg}`; returns `{ok: false, error: errMsg}`.
-- Line 95-99: on fetch error (transport), same `last_error` update + `{ok: false}` response.
+| File | Present | Size |
+|---|---|---|
+| `docker-compose.yml` | yes | 7932 B |
+| `apps/server/Dockerfile` | yes | 1204 B |
+| `apps/web/Dockerfile` | yes | 593 B |
+| `apps/web/nginx.conf` | yes | 601 B |
+| `.env.docker.example` | yes | 412 B |
+| `.dockerignore` | yes | 129 B |
+| `infra/elastic/filebeat.yml` | yes | 294 B |
+| `infra/elastic/logstash.conf` | yes | 249 B |
+| `infra/neon/VENDORED_FROM.md` | yes | 1839 B |
+| `infra/neon/compute_wrapper/Dockerfile` | yes | 593 B |
+| `infra/neon/compute_wrapper/shell/compute.sh` | yes | — |
+| `infra/neon/compute_wrapper/var/db/postgres/configs/config.json` | yes | — |
+| `infra/neon/compute_wrapper/{private,public}-key.{pem,der}` | yes | — |
+| `infra/neon/pageserver_config/identity.toml` | yes | 8 B |
+| `infra/neon/pageserver_config/pageserver.toml` | yes | 508 B |
 
-### AC12 — Standalone bot modules — PASS (with one minor gap)
-Evidence: `~/spaps/counseller/server/src/bot/poller.ts`
-- Exports `startBotIfConfigured` (line 6), `restartBot` (line 23), `stopBot` (line 31).
-- Module-level `currentController: AbortController | null` (line 4) gates concurrent loops.
-- Loop uses `AbortController` to allow cancellation (line 43).
+`infra/neon/VENDORED_FROM.md` correctly pins the upstream SHA: `59e393aef35fea56bbbf5dd1feeebfb3c518731d` and includes a re-vendoring recipe.
 
-`~/spaps/counseller/server/src/bot/dispatch.ts`
-- Line 35: slash regex `^/([a-z-]+)(?:\s+([\s\S]*))?$` distinguishes commands from free text.
-- Line 36-46: slash branch calls `handleSlashCommand`.
-- Line 49-58: free-text branch calls `getContext` + `generateReply` (Gemini).
-- Line 29-32: drops messages from non-target chats (logged via `console.warn`).
-- **Minor gap**: AC12 mentions a `bot.dropped_off_target_chat` counter; dispatch.ts logs the drop but does NOT increment a typed metric counter. The drop behavior itself works; only the metric counter is missing. Severity: low (observability nice-to-have; the functional drop satisfies the AC's mode-isolation intent).
+## Git status
+- Working tree: clean (`git status` → "nothing to commit").
+- Branch `kode` up to date with `origin/kode` (`git rev-list --left-right --count origin/kode...HEAD` → `0  0`).
+- Commit `1e322c4` is pushed.
 
-`~/spaps/counseller/server/src/bot/llm.ts`
-- Line 4 + 42: documents `CALL: /command {json}` marker contract.
-- Line 57: executes parsed CALL via `handleSlashCommand` and strips it before user-visible reply.
+## Concerns (do not block PASS verdict, but should be flagged to user before `docker compose up`)
 
-### AC13 — Mode isolation — PASS
-Evidence: `~/spaps/counseller/README.md:95` — explicit warning: "Do not run plugin mode and standalone bot mode simultaneously for the same Telegram chat. Both will reply, and both will write to the same Neon DB — students get duplicate messages, and `/set-preferences` invocations race." Documents lack of technical interlock; recommends one mode per chat.
+1. **`ghcr.io/neondatabase/neon:latest` is a moving tag** — every `docker compose pull` could pull a different compute storage format and corrupt pageserver state. Already documented in the plan's Risks. Suggest pinning to a specific SHA before any production-like use; fine for local dev.
+2. **Migration count drift**: acceptance criterion #2 says "27-migration tables"; actual is 26 (`0024_*` skipped in numbering). Not an implementation defect — all 26 files will apply — but the acceptance criterion's literal text won't match. User should know.
+3. **Web typecheck has 104 pre-existing TS errors** (`kodeui` module not found + implicit-any event handlers). Unrelated to Docker work but `apps/web/Dockerfile`'s `pnpm --filter @tele/web build` runs `tsc -b && vite build` — meaning **`docker compose up --build` will FAIL at the web build step until the `kodeui` workspace package is resolved.** This is the most likely blocker the user will hit. Plan/execution did not surface this. Recommend resolving `kodeui` (add to `pnpm-workspace.yaml`, install the package, or change tsconfig) BEFORE first `docker compose up`.
+4. **`compute1` DATABASE_URL port mismatch with plan text**: plan documentation says `postgres://cloud_admin@compute1:55432/postgres` (port 55432); actual compose uses `:55433` (matching the published port). Compose is internally consistent (`healthcheck` checks `localhost:55433`, ports expose `55433:55433`). Minor doc/code drift in the plan; compose is correct.
+5. **No `infra/influx/` cleanup**: pre-existing `infra/influx/` directory remains. Not part of this task's scope but worth noting in case it's stale.
 
-The plugin-mode hook (`src/hook.ts`) does not read `bot_config`, so when standalone server is not running, only tele's GramJS owns delivery.
+## Overall verdict
 
-## Build / typecheck summary
+**PASS** for all statically-verifiable criteria (1, 3, 4, 6, 7, 9, 10 fully PASS; 2, 5, 11 deferred to live boot as instructed; 8 — server PASS, web fails for pre-existing reasons documented above).
 
-| Package | Command | Result |
-| --- | --- | --- |
-| tele/apps/server | `pnpm -F @tele/server build` | exit 0 |
-| counseller/ (root) | `npx tsc -p tsconfig.json --noEmit` | exit 0 |
-| counseller/web | `npx tsc --noEmit` | exit 0 |
-| counseller/server | `npx tsc -p tsconfig.json --noEmit` | exit 0 |
-
-## Concerns even though passing
-
-1. **Live end-to-end not exercised**: No Neon DB connected, no real Telegram bot token, no Gemini key in this environment. The static contract is sound; live round-trip for AC4 and AC12 remains a manual smoke test for the operator (as documented in `tasks/todo.md` Steps 13-16b).
-2. **`bot.dropped_off_target_chat` counter missing** (AC12 minor gap): the drop is functional and logged, but no typed metric counter is emitted. Easy follow-up.
-3. **Migration runner comment-strip is line-based**: `text.split("\n").map(line => line.replace(/--.*$/, ""))` correctly strips trailing `--` comments per line, including the multi-line block headers in 0002_seed_colleges.sql. This is conservative — does not handle `--` inside string literals, but no seed SQL contains such literals.
-4. **Plaintext bot token storage**: documented as V1 limitation in README line 60; acceptable for single-operator deployments.
-
-## Overall verdict: PASS
-
-All 13 acceptance criteria pass static verification. The one minor gap (missing `bot.dropped_off_target_chat` metric counter) does not block AC12 since the functional drop behavior — which is what mode-isolation actually depends on — is correct.
+Live `docker compose up -d --build` smoke test is deferred per user instruction. Before that test, the user should address concern #3 (web build will fail until `kodeui` workspace resolves) and concern #1 (consider pinning the Neon image SHA).

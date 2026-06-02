@@ -1,7 +1,16 @@
-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
+import { neon, neonConfig, type NeonQueryFunction } from "@neondatabase/serverless";
 import { config } from "../config.js";
 import { logger } from "../util/logger.js";
 import { incCounter } from "../util/metrics.js";
+
+// When DATABASE_URL points at a local Neon compute (compose service name),
+// re-route HTTP /sql calls and disable secure-WS. Bypassed for cloud Neon
+// DSNs because NEON_FETCH_ENDPOINT is only set inside docker-compose.
+if (process.env.NEON_FETCH_ENDPOINT) {
+  neonConfig.fetchEndpoint = process.env.NEON_FETCH_ENDPOINT;
+  neonConfig.useSecureWebSocket = false;
+  neonConfig.poolQueryViaFetch = true;
+}
 
 const _sql = neon(config.DATABASE_URL);
 

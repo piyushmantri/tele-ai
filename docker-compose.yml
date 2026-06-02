@@ -1,0 +1,275 @@
+name: tele
+
+services:
+  # ---- Neon stack (vendored from neondatabase/neon docker-compose, pinned to compute SHA 59e393a) ----
+  minio:
+    image: quay.io/minio/minio:RELEASE.2022-10-20T00-55-09Z
+    restart: always
+    command: server /data --address :9000 --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: password
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio_create_buckets:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: password
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "until (/usr/bin/mc alias set minio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD) do
+             echo 'Waiting to start minio...' && sleep 1;
+         done;
+         /usr/bin/mc mb --ignore-existing minio/neon --region=eu-north-1;
+         exit 0;"
+
+  storage_broker:
+    image: ghcr.io/neondatabase/neon:latest
+    restart: always
+    command:
+      - "storage_broker"
+      - "--listen-addr=0.0.0.0:50051"
+
+  safekeeper1:
+    image: ghcr.io/neondatabase/neon:latest
+    restart: always
+    depends_on:
+      - storage_broker
+      - minio_create_buckets
+    environment:
+      SAFEKEEPER_ADVERTISE_URL: safekeeper1:5454
+      SAFEKEEPER_ID: 1
+      BROKER_ENDPOINT: http://storage_broker:50051
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: password
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "safekeeper --listen-pg=$$SAFEKEEPER_ADVERTISE_URL
+                    --listen-http='0.0.0.0:7676'
+                    --id=$$SAFEKEEPER_ID
+                    --broker-endpoint=$$BROKER_ENDPOINT
+                    -D /data
+                    --remote-storage=\"{endpoint='http://minio:9000',
+                                        bucket_name='neon',
+                                        bucket_region='eu-north-1',
+                                        prefix_in_bucket='/safekeeper/'}\""
+    volumes:
+      - safekeeper1_data:/data
+
+  safekeeper2:
+    image: ghcr.io/neondatabase/neon:latest
+    restart: always
+    depends_on:
+      - storage_broker
+      - minio_create_buckets
+    environment:
+      SAFEKEEPER_ADVERTISE_URL: safekeeper2:5454
+      SAFEKEEPER_ID: 2
+      BROKER_ENDPOINT: http://storage_broker:50051
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: password
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "safekeeper --listen-pg=$$SAFEKEEPER_ADVERTISE_URL
+                    --listen-http='0.0.0.0:7676'
+                    --id=$$SAFEKEEPER_ID
+                    --broker-endpoint=$$BROKER_ENDPOINT
+                    -D /data
+                    --remote-storage=\"{endpoint='http://minio:9000',
+                                        bucket_name='neon',
+                                        bucket_region='eu-north-1',
+                                        prefix_in_bucket='/safekeeper/'}\""
+    volumes:
+      - safekeeper2_data:/data
+
+  safekeeper3:
+    image: ghcr.io/neondatabase/neon:latest
+    restart: always
+    depends_on:
+      - storage_broker
+      - minio_create_buckets
+    environment:
+      SAFEKEEPER_ADVERTISE_URL: safekeeper3:5454
+      SAFEKEEPER_ID: 3
+      BROKER_ENDPOINT: http://storage_broker:50051
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: password
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "safekeeper --listen-pg=$$SAFEKEEPER_ADVERTISE_URL
+                    --listen-http='0.0.0.0:7676'
+                    --id=$$SAFEKEEPER_ID
+                    --broker-endpoint=$$BROKER_ENDPOINT
+                    -D /data
+                    --remote-storage=\"{endpoint='http://minio:9000',
+                                        bucket_name='neon',
+                                        bucket_region='eu-north-1',
+                                        prefix_in_bucket='/safekeeper/'}\""
+    volumes:
+      - safekeeper3_data:/data
+
+  pageserver:
+    image: ghcr.io/neondatabase/neon:latest
+    restart: always
+    depends_on:
+      - storage_broker
+      - minio_create_buckets
+    environment:
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: password
+    ports:
+      - "9898:9898" # http endpoints (handy for debug)
+    volumes:
+      - pageserver_data:/data
+      - ./infra/neon/pageserver_config:/data/.neon
+
+  compute1:
+    build:
+      context: ./infra/neon/compute_wrapper/
+      args:
+        REPOSITORY: ghcr.io/neondatabase
+        COMPUTE_IMAGE: compute-node-v16
+        TAG: latest
+    image: tele-built-compute
+    restart: always
+    depends_on:
+      - safekeeper1
+      - safekeeper2
+      - safekeeper3
+      - pageserver
+    environment:
+      PG_VERSION: "16"
+      TENANT_ID: ""
+      TIMELINE_ID: ""
+    volumes:
+      - ./infra/neon/compute_wrapper/var/db/postgres/configs/:/var/db/postgres/configs/
+      - ./infra/neon/compute_wrapper/shell/:/shell/
+    ports:
+      - "55433:55433"   # Postgres wire
+      - "3080:3080"     # HTTP /sql endpoint (Neon serverless driver target)
+    entrypoint:
+      - "/shell/compute.sh"
+    networks:
+      default:
+        aliases:
+          - compute
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 55433 -U cloud_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # ---- Elastic stack ----
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health | grep -Eq '\"status\":\"(yellow|green)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./infra/elastic/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    user: root
+    depends_on:
+      logstash:
+        condition: service_started
+    volumes:
+      - ./infra/elastic/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: ["--strict.perms=false"]
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+
+  # ---- tele services ----
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    depends_on:
+      compute1:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://cloud_admin@compute1:55433/postgres
+      NEON_FETCH_ENDPOINT: http://compute1:3080/sql
+      TG_API_ID: ${TG_API_ID}
+      TG_API_HASH: ${TG_API_HASH}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+      PORT: 3000
+      WORKSPACE_ROOT: /data/workspace
+      SESSION_FILE: /data/session.txt
+      INFLUXDB_URL: ${INFLUXDB_URL:-}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-}
+      INFLUXDB_VERSION: ${INFLUXDB_VERSION:-}
+    volumes:
+      - tele_data:/data
+      - tele_data:/app/data
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  minio_data: {}
+  safekeeper1_data: {}
+  safekeeper2_data: {}
+  safekeeper3_data: {}
+  pageserver_data: {}
+  es_data: {}
+  tele_data: {}
