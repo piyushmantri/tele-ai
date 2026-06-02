@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardBody, Input, Alert, Button } from "kodeui";
 import { api } from "../lib/api";
 
 export default function Login({ onSuccess }: { onSuccess: () => void }) {
@@ -18,26 +19,28 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <form
-        onSubmit={submit}
-        className="w-80 space-y-4 rounded border border-slate-800 bg-slate-900 p-6"
-      >
-        <h1 className="text-xl font-semibold">Sign in</h1>
-        <input
-          type="password"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          placeholder="Dashboard password"
-          className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-          autoFocus
-        />
-        {err && <div className="text-sm text-rose-400">{err}</div>}
-        <button
-          type="submit"
-          className="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium hover:bg-indigo-500"
-        >
-          Continue
-        </button>
+      <form onSubmit={submit} style={{ width: 320 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign in</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <Input
+                type="password"
+                label="Dashboard password"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                placeholder="Dashboard password"
+                autoFocus
+              />
+              {err && <Alert variant="error">{err}</Alert>}
+              <Button variant="filled" fullWidth type="submit">
+                Continue
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </form>
     </div>
   );

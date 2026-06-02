@@ -120,6 +120,54 @@ export async function sendFile(
   incCounter("sender.file.ok");
 }
 
+export async function sendVoice(
+  chat: Chat,
+  filePath: string,
+  mimeType: string,
+  durationSec: number,
+  captionText: string,
+  source: "ai" | "manual" = "ai",
+): Promise<void> {
+  const client = getClient();
+  const peer = Number(chat.tg_chat_id);
+  let tgMessageId: string | null = null;
+  try {
+    // mimeType is supported at runtime but missing from SendFileInterface typings.
+    const sent = await client.sendFile(peer, {
+      file: filePath,
+      voiceNote: true,
+      mimeType,
+      attributes: [
+        new Api.DocumentAttributeAudio({
+          duration: Math.max(1, Math.round(durationSec)),
+          voice: true,
+        }),
+      ],
+    } as any);
+    tgMessageId = sent.id != null ? String(sent.id) : null;
+  } catch (err) {
+    incCounter("sender.voice.err");
+    logger.error("sendVoice failed", {
+      chat: chat.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+
+  const text = `[Voice] ${captionText}`;
+  const message = await insertMessage({
+    chat_id: chat.id,
+    tg_message_id: tgMessageId,
+    direction: "out",
+    text,
+    source,
+  });
+  const updated = (await getChatById(chat.id)) ?? chat;
+  await bumpChatActivity(chat.id, new Date());
+  eventBus.emit({ type: "message:sent", payload: { chat: updated, message } });
+  incCounter("sender.voice.ok");
+}
+
 export interface SendPollOptions {
   anonymous?: boolean;
   multiple_choice?: boolean;

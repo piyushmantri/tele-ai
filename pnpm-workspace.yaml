@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'vendor/*'
 allowBuilds:
   bufferutil: true
   es5-ext: true

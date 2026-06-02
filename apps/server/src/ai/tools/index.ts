@@ -11,6 +11,7 @@ import { makeSkillsTools } from "./skills.js";
 import { makeBotMessageTools } from "./botMessages.js";
 import { makeAskUserChoiceTool } from "./askUserChoice.js";
 import { getMCPToolsAsync } from "../../mcp/manager.js";
+import { makeStoreKundaliMatchTool } from "./kundali.js";
 import { logToolCall } from "../../db/repos/audit.js";
 import { eventBus } from "../../util/eventBus.js";
 import { logger } from "../../util/logger.js";
@@ -53,6 +54,7 @@ export async function buildTools(
     ...makeReminderTools(currentChatId),
     ...makeKanbanTools(),
     ...makeSkillsTools(),
+    makeStoreKundaliMatchTool(currentChatId),
     ...mcpTools,
   ];
   if (opts?.isBot) {
@@ -78,7 +80,7 @@ export async function buildTools(
   return { tools, registry, summary };
 }
 
-const MAX_LOOP_ITERATIONS = 6;
+const MAX_LOOP_ITERATIONS = 15;
 const GEMINI_MAX_RETRIES = 3;
 const GEMINI_BASE_DELAY_MS = 800;
 

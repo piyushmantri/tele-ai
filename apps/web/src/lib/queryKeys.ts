@@ -13,5 +13,18 @@ export const qk = {
   slashCommands: ["slashCommands"] as const,
   telegramBot: ["telegramBot"] as const,
   metrics: ["metrics"] as const,
+  // NOTE: ["metrics", "app", slug] is a SUBSET of ["metrics"] so invalidating
+  // qk.metrics also invalidates per-app caches (RQ prefix-match).
+  appMetrics: (slug: string) => ["metrics", "app", slug] as const,
+  applications: ["applications"] as const,
+  // NOTE: ["applications", "registry"] is a SUBSET of ["applications"], so
+  // invalidating qk.applications also invalidates this key (RQ matches by prefix).
+  // Intentional: any change to the applications list should refresh "Installed" badges.
+  applicationsRegistry: ["applications", "registry"] as const,
+  applicationAssignments: (id: string) => ["applications", id, "assignments"] as const,
+  applicationFiles: (id: string) => ["applications", id, "files"] as const,
+  applicationMatches: (id: string) => ["applications", id, "matches"] as const,
+  applicationBotConfig: (id: string) => ["applications", id, "bot-config"] as const,
+  chatApplications: (chatId: string) => ["chats", chatId, "applications"] as const,
 };
 

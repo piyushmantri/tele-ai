@@ -3,6 +3,7 @@ import type { Chat, SlashCommandType } from "@tele/shared";
 import { getSlashCommandByName } from "../db/repos/slashCommands.js";
 import { sendReply } from "./sender.js";
 import { generateAndReply } from "../ai/responder.js";
+import { tryApplicationSlashCommand } from "../ai/applicationSlash.js";
 import { logger } from "../util/logger.js";
 import { incCounter } from "../util/metrics.js";
 import { deleteChat, setChatBlocked, setChatAiContext, setChatSlashOnly } from "../db/repos/chats.js";
@@ -159,8 +160,22 @@ export async function tryDispatchSlash(
     return { handled: true, type: "noop" };
   }
 
+  // Slash command precedence (first match wins):
+  //   1. Built-in commands above (/delete, /block, /context, /slash-only).
+  //   2. User-defined `slash_commands` table row (looked up below).
+  //   3. Application-defined `slash_commands` from installed-app manifests
+  //      (tryApplicationSlashCommand fallback when no user-defined row matches).
+  //   4. Not found → "Command not found" reply.
   const row = await getSlashCommandByName(name);
   if (!row) {
+    // Application-defined slash commands (lower precedence than built-in
+    // + user-defined slashCommands).
+    const appResult = await tryApplicationSlashCommand(chat, name, args ?? "");
+    if (appResult.handled) {
+      await replyToChat(chat, appResult.reply ?? "");
+      incCounter("slash.dispatched.application");
+      return { handled: true, type: "noop" };
+    }
     logger.info("slash command not found", { name, chat: chat.id });
     incCounter("slash.not_found");
     await replyToChat(chat, `Command not found: /${name}`);

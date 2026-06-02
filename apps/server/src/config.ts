@@ -13,6 +13,9 @@ const schema = z.object({
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().default("gemini-3-flash-preview"),
   GEMINI_IMAGE_MODEL: z.string().default("gemini-3.1-flash-image-preview"),
+  // Preview-tier model names may drift; env-var override is the escape hatch.
+  GEMINI_TTS_MODEL: z.string().default("gemini-3.1-flash-tts-preview"),
+  GEMINI_TTS_VOICE: z.string().default("Aoede"),
   DATABASE_URL: z.string().min(1),
   DASHBOARD_PASSWORD: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),

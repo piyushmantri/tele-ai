@@ -7,6 +7,7 @@ const items = [
   { to: "/kanban", label: "Kanban" },
   { to: "/mcp", label: "MCP Servers" },
   { to: "/skills", label: "Skills" },
+  { to: "/applications", label: "Applications" },
   { to: "/slash-commands", label: "Commands" },
   { to: "/bots", label: "Bots" },
   { to: "/metrics", label: "Observability" },
@@ -15,17 +16,20 @@ const items = [
 
 export default function Sidebar() {
   return (
-    <aside className="flex w-48 flex-col border-r border-slate-800 bg-slate-900 p-3">
-      <div className="mb-6 px-2 text-lg font-semibold">Tele AI</div>
+    <aside className="kode-sidebar flex w-48 flex-col p-3">
+      <div
+        className="mb-6 px-2 text-lg font-semibold"
+        style={{ color: "var(--kode-green)", textShadow: "var(--kode-text-glow-sm)", letterSpacing: "0.05em" }}
+      >
+        Tele AI
+      </div>
       <nav className="flex flex-col gap-1">
         {items.map((it) => (
           <NavLink
             key={it.to}
             to={it.to}
             className={({ isActive }) =>
-              `rounded px-3 py-2 text-sm ${
-                isActive ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-800"
-              }`
+              `kode-nav-link${isActive ? " kode-nav-link--active" : ""}`
             }
           >
             {it.label}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardBody, Select, Input, Button, Badge } from "kodeui";
 import type { Chat, Rule } from "@tele/shared";
 import { api } from "../lib/api";
 import { qk } from "../lib/queryKeys";
@@ -60,64 +61,86 @@ export default function Rules() {
     if (pickedChatId && val !== pickedChatId) setPickedChatId("");
   }
 
+  const contactOptions = [
+    { value: "", label: "— pick from contacts —" },
+    ...(chatsQ.data?.chats.map((c) => ({
+      value: c.tg_chat_id,
+      label: chatDisplayName(c),
+    })) ?? []),
+  ];
+
   return (
     <div className="h-full overflow-y-auto p-6">
-      <h1 className="mb-4 text-xl font-semibold">Contact rules</h1>
+      <h1
+        className="mb-4 text-xl font-semibold"
+        style={{ color: "var(--kode-text-primary)", fontFamily: "var(--kode-font-mono)" }}
+      >
+        Contact rules
+      </h1>
 
-      <div className="mb-6 max-w-2xl rounded border border-slate-800 bg-slate-900 p-4 space-y-2">
-        <div className="grid grid-cols-12 gap-2">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as "allow" | "block")}
-            className="col-span-2 rounded border border-slate-700 bg-slate-800 px-2 py-2 text-sm"
-          >
-            <option value="block">block</option>
-            <option value="allow">allow</option>
-          </select>
+      <div className="mb-6 max-w-2xl">
+        <Card>
+          <CardBody>
+            <div className="space-y-3">
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-2">
+                  <Select
+                    value={type}
+                    onChange={(e) => setType(e.target.value as "allow" | "block")}
+                    options={[
+                      { value: "block", label: "block" },
+                      { value: "allow", label: "allow" },
+                    ]}
+                  />
+                </div>
+                <div className="col-span-5">
+                  <Select
+                    value={pickedChatId}
+                    onChange={(e) => handlePickChat(e.target.value)}
+                    options={contactOptions}
+                  />
+                </div>
+                <div className="col-span-3">
+                  <Input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="note (optional)"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Button
+                    variant="filled"
+                    fullWidth
+                    disabled={!match || create.isPending}
+                    onClick={() => create.mutate({ type, match, note: note || undefined })}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
 
-          <select
-            value={pickedChatId}
-            onChange={(e) => handlePickChat(e.target.value)}
-            className="col-span-5 rounded border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-300"
-          >
-            <option value="">— pick from contacts —</option>
-            {chatsQ.data?.chats.map((c) => (
-              <option key={c.id} value={c.tg_chat_id}>
-                {chatDisplayName(c)}
-              </option>
-            ))}
-          </select>
-
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="note (optional)"
-            className="col-span-3 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-          />
-          <button
-            disabled={!match || create.isPending}
-            onClick={() => create.mutate({ type, match, note: note || undefined })}
-            className="col-span-2 rounded bg-indigo-600 px-3 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="grid grid-cols-12 gap-2">
-          <div className="col-span-2 flex items-center justify-center text-xs text-slate-500">or</div>
-          <input
-            value={match}
-            onChange={(e) => handleMatchInput(e.target.value)}
-            placeholder="type username or numeric tg id"
-            className="col-span-10 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-          />
-        </div>
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-2 flex items-center justify-center text-xs" style={{ color: "var(--kode-text-muted)" }}>or</div>
+                <div className="col-span-10">
+                  <Input
+                    value={match}
+                    onChange={(e) => handleMatchInput(e.target.value)}
+                    placeholder="type username or numeric tg id"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="max-w-3xl rounded border border-slate-800 bg-slate-900">
+      <div
+        className="max-w-3xl rounded"
+        style={{ border: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+      >
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+            <tr style={{ borderBottom: "1px solid var(--kode-border)", color: "var(--kode-text-muted)" }} className="text-left text-xs uppercase">
               <th className="px-4 py-2">Type</th>
               <th className="px-4 py-2">Match</th>
               <th className="px-4 py-2">Note</th>
@@ -127,36 +150,25 @@ export default function Rules() {
           </thead>
           <tbody>
             {q.data?.rules.map((r) => (
-              <tr key={r.id} className="border-b border-slate-800 last:border-b-0">
+              <tr key={r.id} style={{ borderBottom: "1px solid var(--kode-border)" }}>
                 <td className="px-4 py-2">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${
-                      r.type === "block"
-                        ? "bg-rose-900/60 text-rose-200"
-                        : "bg-emerald-900/60 text-emerald-200"
-                    }`}
-                  >
-                    {r.type}
-                  </span>
+                  <Badge variant={r.type === "block" ? "error" : "success"}>{r.type}</Badge>
                 </td>
                 <td className="px-4 py-2 font-mono">{r.match}</td>
-                <td className="px-4 py-2 text-slate-400">{r.note ?? ""}</td>
-                <td className="px-4 py-2 text-slate-500">
+                <td className="px-4 py-2" style={{ color: "var(--kode-text-muted)" }}>{r.note ?? ""}</td>
+                <td className="px-4 py-2" style={{ color: "var(--kode-text-muted)" }}>
                   {new Date(r.created_at).toLocaleString()}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <button
-                    onClick={() => remove.mutate(r.id)}
-                    className="text-xs text-rose-400 hover:text-rose-300"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}>
                     Delete
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
             {q.data && q.data.rules.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--kode-text-muted)" }}>
                   No rules yet.
                 </td>
               </tr>
@@ -170,11 +182,16 @@ export default function Rules() {
         if (blocked.length === 0) return null;
         return (
           <div className="mt-6 max-w-3xl">
-            <h2 className="mb-2 text-sm font-medium text-slate-400">Blocked contacts (chat-level)</h2>
-            <div className="rounded border border-slate-800 bg-slate-900">
+            <h2 className="mb-2 text-sm font-medium" style={{ color: "var(--kode-text-muted)" }}>
+              Blocked contacts (chat-level)
+            </h2>
+            <div
+              className="rounded"
+              style={{ border: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+            >
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+                  <tr style={{ borderBottom: "1px solid var(--kode-border)", color: "var(--kode-text-muted)" }} className="text-left text-xs uppercase">
                     <th className="px-4 py-2">Contact</th>
                     <th className="px-4 py-2">Tg ID</th>
                     <th className="px-4 py-2"></th>
@@ -182,17 +199,20 @@ export default function Rules() {
                 </thead>
                 <tbody>
                   {blocked.map((c) => (
-                    <tr key={c.id} className="border-b border-slate-800 last:border-b-0">
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--kode-border)" }}>
                       <td className="px-4 py-2 font-medium">{chatDisplayName(c)}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-slate-400">{c.tg_chat_id}</td>
+                      <td className="px-4 py-2 font-mono text-xs" style={{ color: "var(--kode-text-muted)" }}>
+                        {c.tg_chat_id}
+                      </td>
                       <td className="px-4 py-2 text-right">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => unblock.mutate(c.id)}
                           disabled={unblock.isPending}
-                          className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
                         >
                           Unblock
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -205,4 +225,3 @@ export default function Rules() {
     </div>
   );
 }
-

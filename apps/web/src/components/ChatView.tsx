@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Chat, Message } from "@tele/shared";
+import { Button, TextArea, Switch, Badge, Card, CardBody, Tooltip } from "kodeui";
+import type { Application, Chat, Message } from "@tele/shared";
 import { api } from "../lib/api";
 import { qk } from "../lib/queryKeys";
 import { useWsEvent } from "../lib/ws";
@@ -17,12 +18,14 @@ export default function ChatView({ chat }: Props) {
 
   const [contextOpen, setContextOpen] = useState(false);
   const [contextDraft, setContextDraft] = useState(chat.ai_context ?? "");
+  const [appsOpen, setAppsOpen] = useState(false);
 
   // Reset draft on chat switch only — don't clobber an in-flight typing session
   // when a WS event arrives mid-edit (per plan A8).
   useEffect(() => {
     setContextDraft(chat.ai_context ?? "");
     setContextOpen(false);
+    setAppsOpen(false);
   }, [chat.id]);
 
   const toggleBlock = useMutation({
@@ -41,6 +44,39 @@ export default function ChatView({ chat }: Props) {
     mutationFn: (context: string | null) =>
       api.patch(`/api/chats/${chat.id}/context`, { context }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.chats }),
+  });
+
+  const chatAppsQ = useQuery({
+    queryKey: qk.chatApplications(chat.id),
+    queryFn: () =>
+      api.get<{
+        applications: Array<Application & { assignment_enabled: boolean | null }>;
+      }>(`/api/chats/${chat.id}/applications`),
+    enabled: appsOpen,
+  });
+
+  const enableApp = useMutation({
+    mutationFn: (applicationId: string) =>
+      api.put(`/api/applications/${applicationId}/chats/${chat.id}`, {
+        enabled: true,
+      }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: qk.chatApplications(chat.id) }),
+  });
+
+  const disableApp = useMutation({
+    mutationFn: (applicationId: string) =>
+      api.del(`/api/applications/${applicationId}/chats/${chat.id}`),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: qk.chatApplications(chat.id) }),
+  });
+
+  useWsEvent("application:changed", () => {
+    qc.invalidateQueries({ queryKey: qk.chatApplications(chat.id) });
+  });
+  useWsEvent("application_chat:changed", (e) => {
+    if (e.payload.chat_id !== chat.id) return;
+    qc.invalidateQueries({ queryKey: qk.chatApplications(chat.id) });
   });
 
   const q = useQuery({
@@ -79,88 +115,144 @@ export default function ChatView({ chat }: Props) {
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="border-b border-slate-800 bg-slate-900 px-4 py-3 text-sm">
+      <div
+        className="px-4 py-3 text-sm"
+        style={{ borderBottom: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-medium">
+            <div className="font-medium" style={{ color: "var(--kode-text-primary)" }}>
               {[chat.first_name, chat.last_name].filter(Boolean).join(" ") ||
                 chat.username ||
                 chat.tg_chat_id}
             </div>
-            {chat.username && <div className="text-xs text-slate-500">@{chat.username}</div>}
+            {chat.username && (
+              <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>@{chat.username}</div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => toggleSlashOnly.mutate(!chat.slash_only)}
-              disabled={toggleSlashOnly.isPending}
-              className={`rounded px-3 py-1 text-xs font-medium disabled:opacity-50 ${
-                chat.slash_only
-                  ? "bg-amber-900/60 text-amber-200 hover:bg-amber-900"
-                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-              }`}
-              title="When on, plain-text messages are silently dropped — only slash commands run."
-            >
-              {chat.slash_only ? "Slash-only: on" : "Slash-only: off"}
-            </button>
-            <button
-              onClick={() => toggleBlock.mutate(!chat.is_blocked)}
+          <div className="flex items-center gap-3">
+            <Tooltip content="When on, plain-text messages are silently dropped — only slash commands run.">
+              <span>
+                <Switch
+                  checked={chat.slash_only}
+                  onChange={(checked: boolean) => toggleSlashOnly.mutate(checked)}
+                  disabled={toggleSlashOnly.isPending}
+                  label="Slash-only"
+                />
+              </span>
+            </Tooltip>
+            <Switch
+              checked={chat.is_blocked}
+              onChange={(checked: boolean) => toggleBlock.mutate(checked)}
               disabled={toggleBlock.isPending}
-              className={`rounded px-3 py-1 text-xs font-medium disabled:opacity-50 ${
-                chat.is_blocked
-                  ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  : "bg-rose-900/50 text-rose-300 hover:bg-rose-900"
-              }`}
-            >
-              {chat.is_blocked ? "Unblock" : "Block"}
-            </button>
+              label="Blocked"
+            />
           </div>
         </div>
         <div className="mt-2">
           <button
             onClick={() => setContextOpen((v) => !v)}
-            className="text-xs text-slate-400 hover:text-slate-200"
+            className="text-xs"
+            style={{ color: "var(--kode-text-muted)" }}
           >
             {contextOpen ? "Hide context" : "Context"}
             {chat.ai_context && !contextOpen && (
-              <span className="ml-2 rounded bg-indigo-900/60 px-1.5 py-0.5 text-[10px] text-indigo-200">
-                set
+              <span className="ml-2">
+                <Badge variant="info" pill>set</Badge>
               </span>
             )}
           </button>
           {contextOpen && (
             <div className="mt-2 space-y-2">
-              <textarea
+              <TextArea
+                label="Per-chat context"
                 value={contextDraft}
                 onChange={(e) => setContextDraft(e.target.value)}
                 rows={4}
                 placeholder="Per-chat AI context — appended to the system instruction. Empty = none."
                 maxLength={8000}
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs"
               />
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="filled"
+                  size="sm"
                   onClick={() => setContext.mutate(contextDraft || null)}
                   disabled={setContext.isPending}
-                  className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {setContext.isPending ? "Saving…" : "Save"}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setContextDraft("");
                     setContext.mutate(null);
                   }}
                   disabled={setContext.isPending}
-                  className="rounded bg-slate-700 px-3 py-1 text-xs font-medium hover:bg-slate-600 disabled:opacity-50"
                 >
                   Clear
-                </button>
+                </Button>
               </div>
             </div>
           )}
+          <div className="mt-2">
+            <button
+              onClick={() => setAppsOpen((v) => !v)}
+              className="text-xs"
+              style={{ color: "var(--kode-text-muted)" }}
+            >
+              {appsOpen ? "Hide applications" : "Applications"}
+            </button>
+            {appsOpen && (
+              <div className="mt-2 space-y-1">
+                {chatAppsQ.isLoading && (
+                  <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Loading…</div>
+                )}
+                {chatAppsQ.data?.applications.length === 0 && (
+                  <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>
+                    No applications configured.
+                  </div>
+                )}
+                {chatAppsQ.data?.applications.map((a) => {
+                  const isGlobal = a.is_global_default;
+                  const checked = a.assignment_enabled === true;
+                  return (
+                    <Card key={a.id}>
+                      <CardBody>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-medium" style={{ color: "var(--kode-text-primary)" }}>{a.name}</span>
+                            <span className="font-mono" style={{ color: "var(--kode-text-muted)" }}>{a.type}</span>
+                            {!a.enabled && (
+                              <Badge variant="warning">disabled globally</Badge>
+                            )}
+                          </div>
+                          {isGlobal ? (
+                            <Badge variant="info">global</Badge>
+                          ) : (
+                            <Switch
+                              checked={checked}
+                              onChange={(c: boolean) =>
+                                c ? enableApp.mutate(a.id) : disableApp.mutate(a.id)
+                              }
+                              label={a.name}
+                            />
+                          )}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-slate-950 p-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-2 overflow-y-auto p-4"
+        style={{ background: "var(--kode-bg-dark)" }}
+      >
         {q.data?.messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}

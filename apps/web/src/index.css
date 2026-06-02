@@ -1,9 +1,67 @@
+/* kodeUI loaded first; Tailwind utilities appended after */
+@import "kodeui/style.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
-#root {
-  height: 100%;
+body {
+  background: var(--kode-bg-darkest);
+  color: var(--kode-text-secondary);
+  font-family: var(--kode-font-mono);
+}
+
+/* Chrome layout helpers */
+.kode-sidebar {
+  background: var(--kode-bg-darker);
+  border-right: 1px solid var(--kode-border);
+}
+
+.kode-topbar {
+  background: var(--kode-bg-darker);
+  border-bottom: 1px solid var(--kode-border);
+}
+
+.kode-nav-link {
+  color: var(--kode-text-tertiary);
+  border-radius: var(--kode-radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: block;
+  border: 1px solid transparent;
+  transition: var(--kode-transition-fast);
+}
+
+.kode-nav-link:hover {
+  background: rgba(0, 255, 0, 0.04);
+  color: var(--kode-text-secondary);
+}
+
+.kode-nav-link--active {
+  background: rgba(0, 255, 0, 0.08);
+  color: var(--kode-green);
+  border-color: var(--kode-border-green);
+  box-shadow: var(--kode-glow-xs);
+}
+
+/* Chat bubble helpers */
+.kode-bubble--out {
+  background: rgba(0, 255, 0, 0.07);
+  border: 1px solid var(--kode-border-green);
+  color: var(--kode-text-secondary);
+  border-radius: var(--kode-radius-lg);
+  padding: 0.5rem 0.75rem;
+  max-width: 80%;
+  align-self: flex-end;
+}
+
+.kode-bubble--in {
+  background: var(--kode-bg-light);
+  border: 1px solid var(--kode-border);
+  color: var(--kode-text-secondary);
+  border-radius: var(--kode-radius-lg);
+  padding: 0.5rem 0.75rem;
+  max-width: 80%;
+  align-self: flex-start;
 }

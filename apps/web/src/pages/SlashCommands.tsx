@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardBody, Select, Input, TextArea, Button, Badge, Alert, Switch } from "kodeui";
 import type { SlashCommand, SlashCommandType } from "@tele/shared";
 import { api } from "../lib/api";
 import { qk } from "../lib/queryKeys";
@@ -24,6 +25,19 @@ const PLACEHOLDERS: Record<SlashCommandType, string> = {
   ai_prompt: "You are a haiku poet. Reply only with a haiku.",
   noop: "-",
 };
+
+const TYPE_OPTIONS = [
+  { value: "message", label: "message" },
+  { value: "shell", label: "shell" },
+  { value: "ai_prompt", label: "ai_prompt" },
+  { value: "noop", label: "noop" },
+];
+
+const TYPE_OPTIONS_EDIT = [
+  { value: "message", label: "message" },
+  { value: "shell", label: "shell" },
+  { value: "ai_prompt", label: "ai_prompt" },
+];
 
 interface BuiltinCommand {
   name: string;
@@ -130,16 +144,18 @@ export default function SlashCommands() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Commands</h1>
-        <button
-          onClick={() => setShowAdd((s) => !s)}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500"
+        <h1
+          className="text-xl font-semibold"
+          style={{ color: "var(--kode-text-primary)", fontFamily: "var(--kode-font-mono)" }}
         >
+          Commands
+        </h1>
+        <Button variant="filled" onClick={() => setShowAdd((s) => !s)}>
           {showAdd ? "Cancel" : "+ Add command"}
-        </button>
+        </Button>
       </div>
 
-      <div className="mb-4 max-w-2xl space-y-1 text-xs text-slate-500">
+      <div className="mb-4 max-w-2xl space-y-1 text-xs" style={{ color: "var(--kode-text-muted)" }}>
         <p>
           Slash commands intercept incoming messages that start with{" "}
           <code className="font-mono">/name</code>. Four types are supported:
@@ -171,70 +187,62 @@ export default function SlashCommands() {
       </div>
 
       {showAdd && (
-        <div className="mb-6 max-w-2xl space-y-3 rounded border border-slate-700 bg-slate-900 p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">Name (lowercase)</label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="ping"
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">Type</label>
-              <select
-                value={form.type}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, type: e.target.value as SlashCommandType }))
-                }
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-              >
-                <option value="message">message</option>
-                <option value="shell">shell</option>
-                <option value="ai_prompt">ai_prompt</option>
-                <option value="noop">noop</option>
-              </select>
-            </div>
-          </div>
+        <div className="mb-6 max-w-2xl">
+          <Card>
+            <CardBody>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Name (lowercase)"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="ping"
+                  />
+                  <Select
+                    label="Type"
+                    value={form.type}
+                    onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as SlashCommandType }))}
+                    options={TYPE_OPTIONS}
+                  />
+                </div>
 
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Description</label>
-            <input
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="What this command does"
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </div>
+                <Input
+                  label="Description"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="What this command does"
+                />
 
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Action</label>
-            <textarea
-              value={form.action}
-              onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))}
-              placeholder={PLACEHOLDERS[form.type]}
-              rows={6}
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-sm"
-            />
-          </div>
+                <TextArea
+                  label="Action"
+                  value={form.action}
+                  onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))}
+                  placeholder={PLACEHOLDERS[form.type]}
+                  rows={6}
+                  style={{ fontFamily: "var(--kode-font-mono)" }}
+                />
 
-          {add.error && <p className="text-xs text-rose-400">{String(add.error)}</p>}
+                {add.error && <Alert variant="error">{String(add.error)}</Alert>}
 
-          <div className="flex justify-end">
-            <button
-              disabled={!form.name || !form.action || add.isPending}
-              onClick={handleAdd}
-              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {add.isPending ? "Adding…" : "Add command"}
-            </button>
-          </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="filled"
+                    disabled={!form.name || !form.action || add.isPending}
+                    onClick={handleAdd}
+                  >
+                    {add.isPending ? "Adding…" : "Add command"}
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
         </div>
       )}
 
-      <div className="max-w-4xl overflow-hidden rounded border border-slate-800 bg-slate-900">
+      <div
+        className="max-w-4xl overflow-hidden rounded"
+        style={{ border: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+      >
         <table className="w-full table-fixed text-sm">
           <colgroup>
             <col className="w-32" />
@@ -245,7 +253,7 @@ export default function SlashCommands() {
             <col className="w-32" />
           </colgroup>
           <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+            <tr style={{ borderBottom: "1px solid var(--kode-border)", color: "var(--kode-text-muted)" }} className="text-left text-xs uppercase">
               <th className="px-4 py-2">Name</th>
               <th className="px-4 py-2">Description</th>
               <th className="px-4 py-2">Type</th>
@@ -257,136 +265,93 @@ export default function SlashCommands() {
           <tbody>
             {q.data?.slash_commands.map((c) =>
               editId === c.id ? (
-                <tr key={c.id} className="border-b border-slate-700 bg-slate-800/60">
+                <tr key={c.id} style={{ borderBottom: "1px solid var(--kode-border)", background: "var(--kode-bg-dark)" }}>
                   <td colSpan={6} className="px-4 py-4">
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-400">Name</label>
-                          <input
-                            value={editForm.name}
-                            onChange={(e) =>
-                              setEditForm((f) => ({ ...f, name: e.target.value }))
-                            }
-                            className="w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-400">Type</label>
-                          <select
-                            value={editForm.type}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                type: e.target.value as SlashCommandType,
-                              }))
-                            }
-                            className="w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 text-sm"
-                          >
-                            <option value="message">message</option>
-                            <option value="shell">shell</option>
-                            <option value="ai_prompt">ai_prompt</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-xs text-slate-400">
-                          Description
-                        </label>
-                        <input
-                          value={editForm.description}
+                        <Input
+                          label="Name"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        />
+                        <Select
+                          label="Type"
+                          value={editForm.type}
                           onChange={(e) =>
-                            setEditForm((f) => ({ ...f, description: e.target.value }))
+                            setEditForm((f) => ({ ...f, type: e.target.value as SlashCommandType }))
                           }
-                          className="w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 text-sm"
+                          options={TYPE_OPTIONS_EDIT}
                         />
                       </div>
 
-                      <div>
-                        <label className="mb-1 block text-xs text-slate-400">Action</label>
-                        <textarea
-                          value={editForm.action}
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, action: e.target.value }))
-                          }
-                          placeholder={PLACEHOLDERS[editForm.type]}
-                          rows={6}
-                          className="w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 font-mono text-sm"
-                        />
-                      </div>
+                      <Input
+                        label="Description"
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                      />
 
-                      {update.error && (
-                        <p className="text-xs text-rose-400">{String(update.error)}</p>
-                      )}
+                      <TextArea
+                        label="Action"
+                        value={editForm.action}
+                        onChange={(e) => setEditForm((f) => ({ ...f, action: e.target.value }))}
+                        placeholder={PLACEHOLDERS[editForm.type]}
+                        rows={6}
+                        style={{ fontFamily: "var(--kode-font-mono)" }}
+                      />
+
+                      {update.error && <Alert variant="error">{String(update.error)}</Alert>}
 
                       <div className="flex gap-2">
-                        <button
+                        <Button
+                          variant="filled"
                           onClick={handleUpdate}
                           disabled={update.isPending || !editForm.name || !editForm.action}
-                          className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
                         >
                           {update.isPending ? "Saving…" : "Save"}
-                        </button>
-                        <button
-                          onClick={() => setEditId(null)}
-                          className="rounded bg-slate-700 px-3 py-1.5 text-sm font-medium hover:bg-slate-600"
-                        >
+                        </Button>
+                        <Button variant="ghost" onClick={() => setEditId(null)}>
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </td>
                 </tr>
               ) : (
-                <tr key={c.id} className="border-b border-slate-800 last:border-b-0">
+                <tr key={c.id} style={{ borderBottom: "1px solid var(--kode-border)" }}>
                   <td className="truncate px-4 py-2 font-mono">/{c.name}</td>
-                  <td className="truncate px-4 py-2 text-xs text-slate-400" title={c.description}>
+                  <td className="truncate px-4 py-2 text-xs" style={{ color: "var(--kode-text-muted)" }} title={c.description}>
                     {c.description || "—"}
                   </td>
                   <td className="px-4 py-2">
-                    <span className="rounded bg-slate-700 px-2 py-0.5 font-mono text-xs">
-                      {c.type}
-                    </span>
+                    <Badge variant="default">{c.type}</Badge>
                   </td>
                   <td
-                    className="truncate px-4 py-2 font-mono text-xs text-slate-400"
+                    className="truncate px-4 py-2 font-mono text-xs"
+                    style={{ color: "var(--kode-text-muted)" }}
                     title={c.action}
                   >
                     {c.action}
                   </td>
                   <td className="px-4 py-2">
-                    <button
-                      onClick={() => toggle.mutate({ id: c.id, enabled: !c.enabled })}
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        c.enabled
-                          ? "bg-emerald-900/60 text-emerald-200 hover:bg-emerald-900"
-                          : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-                      }`}
-                    >
-                      {c.enabled ? "enabled" : "disabled"}
-                    </button>
+                    <Switch
+                      checked={c.enabled}
+                      onChange={(checked: boolean) => toggle.mutate({ id: c.id, enabled: checked })}
+                    />
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right">
-                    <button
-                      onClick={() => startEdit(c)}
-                      className="mr-3 text-xs text-slate-400 hover:text-slate-200"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => startEdit(c)}>
                       Edit
-                    </button>
-                    <button
-                      onClick={() => remove.mutate(c.id)}
-                      className="text-xs text-rose-400 hover:text-rose-300"
-                    >
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(c.id)}>
                       Remove
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ),
             )}
             {q.data?.slash_commands.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center" style={{ color: "var(--kode-text-muted)" }}>
                   No slash commands configured.
                 </td>
               </tr>
@@ -396,17 +361,20 @@ export default function SlashCommands() {
       </div>
 
       <div className="mt-8 max-w-4xl">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--kode-text-muted)" }}>
           System commands
         </h2>
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="mb-3 text-xs" style={{ color: "var(--kode-text-muted)" }}>
           Built into the application. Always enabled. Cannot be edited or removed from the
           dashboard.
         </p>
-        <div className="rounded border border-slate-800 bg-slate-900">
+        <div
+          className="rounded"
+          style={{ border: "1px solid var(--kode-border)", background: "var(--kode-bg-darker)" }}
+        >
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
+              <tr style={{ borderBottom: "1px solid var(--kode-border)", color: "var(--kode-text-muted)" }} className="text-left text-xs uppercase">
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Description</th>
                 <th className="px-4 py-2">Type</th>
@@ -414,13 +382,11 @@ export default function SlashCommands() {
             </thead>
             <tbody>
               {BUILTIN_COMMANDS.map((b) => (
-                <tr key={b.name} className="border-b border-slate-800 last:border-b-0">
+                <tr key={b.name} style={{ borderBottom: "1px solid var(--kode-border)" }}>
                   <td className="px-4 py-2 font-mono">/{b.name}</td>
-                  <td className="px-4 py-2 text-xs text-slate-400">{b.description}</td>
+                  <td className="px-4 py-2 text-xs" style={{ color: "var(--kode-text-muted)" }}>{b.description}</td>
                   <td className="px-4 py-2">
-                    <span className="rounded bg-amber-900/40 px-2 py-0.5 font-mono text-xs text-amber-200">
-                      built-in
-                    </span>
+                    <Badge variant="warning">built-in</Badge>
                   </td>
                 </tr>
               ))}
