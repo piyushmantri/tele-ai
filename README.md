@@ -252,6 +252,50 @@ Keep the dashboard behind a firewall or reverse proxy with auth (nginx, Caddy, C
 
 ---
 
+## Run with Docker
+
+This setup runs a FULLY LOCAL Neon stack (compute + pageserver + 3 safekeepers + minio-as-S3 + storage broker) so the `@neondatabase/serverless` driver works unchanged against a self-hosted Postgres-compatible compute. Plus Elasticsearch + Kibana + Filebeat for log aggregation.
+
+### Prereqs
+- Docker Desktop (or Docker Engine 24+ with compose v2). On macOS, ensure Docker Desktop's file-sharing uses gRPC FUSE, not VirtioFS (Neon-Local README flags VirtioFS as broken; the full-stack compute appears unaffected but follow the docs' caution).
+- Linux: `sudo sysctl -w vm.max_map_count=262144` for Elasticsearch.
+- 8 GB RAM available to Docker (Neon stack + ES + JVM heap all together).
+
+### Boot
+```bash
+cp .env.docker.example .env
+# Fill in TG_API_ID, TG_API_HASH, GEMINI_API_KEY, DASHBOARD_PASSWORD
+docker compose up -d --build
+```
+Initial bring-up takes ~2-3 minutes (Neon compute init + ES yellow + tele migrations). Watch `docker compose logs -f server` and look for `"ready"`.
+
+Visit:
+- http://localhost:8080 — tele dashboard (log in with `DASHBOARD_PASSWORD`).
+- http://localhost:5601 — Kibana (Stack Management → Index Patterns → create `tele-logs-*`).
+- http://localhost:55433 — direct Postgres access via `psql -h localhost -p 55433 -U cloud_admin -d postgres` (no password locally).
+
+### First-run Telegram user-account login
+GramJS needs a TTY for the SMS verification code. Workaround:
+```bash
+# On the host, once
+pnpm install
+pnpm tg-login   # enter phone + code; writes data/session.txt
+# Copy into the named volume
+docker run --rm -v tele_tele_data:/data -v "$PWD/data":/seed alpine cp /seed/session.txt /data/session.txt
+docker compose restart server
+```
+
+### Reset
+- `docker compose down` — stop containers, KEEP all data.
+- `docker compose down -v` — wipes Postgres, Elasticsearch, Telegram session. Use only for a complete fresh start.
+
+### If the local Neon stack proves unstable
+The upstream `neondatabase/neon` README warns the docker-compose setup is "for testing Neon docker images" and "not intended for deploying a usable system." If the compute repeatedly crashes or pageserver state corrupts, you have two fallbacks:
+1. **Switch to `neondatabase/neon_local`** (cloud-tied; requires `NEON_API_KEY` + `NEON_PROJECT_ID` env vars; auto-creates ephemeral branches in YOUR cloud Neon project).
+2. **Use plain `postgres:16-alpine`** by swapping the DB driver (see git history of this plan — REV 1 documented this path).
+
+---
+
 ## License
 
 MIT
