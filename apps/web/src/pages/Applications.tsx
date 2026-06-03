@@ -16,8 +16,6 @@ import type {
   Application,
   ApplicationChatAssignment,
   ApplicationFile,
-  ApplicationChat,
-  ApplicationMessage,
   ApplicationRegistryEntry,
   ApplicationType,
   Chat,
@@ -78,7 +76,6 @@ export default function Applications() {
   const [editRevealDb, setEditRevealDb] = useState(false);
   const [manageId, setManageId] = useState<string | null>(null);
   const [filesId, setFilesId] = useState<string | null>(null);
-  const [chatsId, setChatsId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const q = useQuery({
@@ -469,13 +466,6 @@ export default function Applications() {
                             >
                               {filesId === a.id ? "Hide files" : "Files"}
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setChatsId((curr) => (curr === a.id ? null : a.id))}
-                            >
-                              {chatsId === a.id ? "Hide chats" : "Chats"}
-                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => startEdit(a)}>
                               Edit
                             </Button>
@@ -496,13 +486,6 @@ export default function Applications() {
                         <tr key={`${a.id}-files`} style={{ borderBottom: "1px solid var(--kode-border)", background: "var(--kode-bg-dark)" }}>
                           <td colSpan={6} className="px-4 py-4">
                             <ManageFiles applicationId={a.id} fileInputRef={fileInputRef} />
-                          </td>
-                        </tr>
-                      )}
-                      {chatsId === a.id && (
-                        <tr key={`${a.id}-chats`} style={{ borderBottom: "1px solid var(--kode-border)", background: "var(--kode-bg-dark)" }}>
-                          <td colSpan={6} className="px-4 py-4">
-                            <ChatsPanel applicationId={a.id} />
                           </td>
                         </tr>
                       )}
@@ -848,97 +831,5 @@ function RegistryCard({ entry }: { entry: ApplicationRegistryEntry }) {
         )}
       </CardBody>
     </Card>
-  );
-}
-
-function ChatsPanel({ applicationId }: { applicationId: string }) {
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
-
-  const chatsQ = useQuery({
-    queryKey: qk.applicationChats(applicationId),
-    queryFn: () => api.get<{ chats: ApplicationChat[] }>(`/api/applications/${applicationId}/chats`),
-  });
-
-  const messagesQ = useQuery({
-    queryKey: qk.applicationChatMessages(applicationId, selectedChat ?? ""),
-    queryFn: () =>
-      api.get<{ messages: ApplicationMessage[] }>(
-        `/api/applications/${applicationId}/chats/${selectedChat}`,
-      ),
-    enabled: !!selectedChat,
-  });
-
-  function fmtTime(iso: string) {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
-  }
-
-  return (
-    <div className="flex gap-4" style={{ minHeight: 200 }}>
-      {/* Chat list */}
-      <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid var(--kode-border)", paddingRight: 12 }}>
-        <div className="text-xs font-medium mb-2" style={{ color: "var(--kode-text-primary)" }}>
-          Chats
-        </div>
-        {chatsQ.isLoading && <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Loading…</div>}
-        {chatsQ.data?.chats.length === 0 && (
-          <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>No conversations yet.</div>
-        )}
-        <div className="space-y-1">
-          {chatsQ.data?.chats.map((c) => (
-            <button
-              key={c.tg_chat_id}
-              onClick={() => setSelectedChat(c.tg_chat_id)}
-              className="w-full text-left rounded px-2 py-2"
-              style={{
-                background: selectedChat === c.tg_chat_id ? "var(--kode-bg-active)" : "transparent",
-                border: "1px solid " + (selectedChat === c.tg_chat_id ? "var(--kode-accent)" : "transparent"),
-                cursor: "pointer",
-              }}
-            >
-              <div className="text-xs font-mono truncate" style={{ color: "var(--kode-text-primary)" }}>
-                {c.tg_chat_id}
-              </div>
-              <div className="text-xs truncate mt-0.5" style={{ color: "var(--kode-text-muted)" }}>
-                {c.last_preview}
-              </div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--kode-text-muted)" }}>
-                {c.message_count} msg · {fmtTime(c.last_at)}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Message thread */}
-      <div className="flex-1 flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: 480 }}>
-        {!selectedChat && (
-          <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Select a chat to view messages.</div>
-        )}
-        {messagesQ.isLoading && (
-          <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Loading…</div>
-        )}
-        {messagesQ.data?.messages.map((m) => (
-          <div
-            key={m.id}
-            className="rounded px-3 py-2 text-xs"
-            style={{
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "80%",
-              background: m.role === "user" ? "var(--kode-accent)" : "var(--kode-bg-card)",
-              color: m.role === "user" ? "var(--kode-accent-fg, #fff)" : "var(--kode-text-primary)",
-              border: m.role === "assistant" ? "1px solid var(--kode-border)" : "none",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            <div className="mb-1 opacity-60" style={{ fontSize: "0.65rem" }}>
-              {m.role} · {fmtTime(m.created_at)}
-            </div>
-            {m.content}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
