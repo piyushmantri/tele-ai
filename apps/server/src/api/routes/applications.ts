@@ -968,4 +968,34 @@ export async function registerApplicationRoutes(
       return { ok: false, error: message };
     }
   });
+
+  app.get("/api/applications/:id/chats", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const application = await getApplication(id);
+    if (!application?.database_url) { return { chats: [] }; }
+    try {
+      const sql = makeSql(application.database_url);
+      const chats = await sql(
+        `SELECT chat_id, COUNT(*)::int AS message_count, MAX(created_at) AS last_at,
+           LEFT((SELECT content FROM chat_messages m2 WHERE m2.chat_id = m.chat_id ORDER BY created_at DESC LIMIT 1), 120) AS last_preview
+         FROM chat_messages m GROUP BY chat_id ORDER BY MAX(created_at) DESC`,
+        [],
+      );
+      return { chats };
+    } catch { return { chats: [] }; }
+  });
+
+  app.get("/api/applications/:id/chats/:chatId", async (req, reply) => {
+    const { id, chatId } = req.params as { id: string; chatId: string };
+    const application = await getApplication(id);
+    if (!application?.database_url) { reply.code(404); return { error: "Not found" }; }
+    try {
+      const sql = makeSql(application.database_url);
+      const messages = await sql(
+        `SELECT id, chat_id, role, content, created_at FROM chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
+        [chatId],
+      );
+      return { messages };
+    } catch { reply.code(500); return { error: "Failed to query app database" }; }
+  });
 }

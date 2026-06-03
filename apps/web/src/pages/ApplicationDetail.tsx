@@ -17,6 +17,8 @@ import type {
   Application,
   ApplicationChatAssignment,
   ApplicationFile,
+  ApplicationChat,
+  ApplicationMessage,
   Chat,
 } from "@tele/shared";
 import { api } from "../lib/api";
@@ -116,9 +118,16 @@ export default function ApplicationDetail() {
           id: "settings",
           label: "Settings",
           content: (
-            <Section title="Application Settings">
-              <PluginSlot slug={app.registry_slug!} appId={app.id} />
-            </Section>
+            <>
+              <Section title="Application Settings">
+                <PluginSlot slug={app.registry_slug!} appId={app.id} />
+              </Section>
+              {app.database_url && (
+                <Section title="Chat History">
+                  <ChatsPanel appId={app.id} />
+                </Section>
+              )}
+            </>
           ),
         },
         {
@@ -554,6 +563,129 @@ function HookFile({ appId }: { appId: string }) {
         <code className="font-mono">apps/server/applications/&lt;slug&gt;/hook.ts</code>{" "}
         locally and restart the server to pick up changes (ESM module cache).
       </p>
+    </div>
+  );
+}
+
+function ChatsPanel({ appId }: { appId: string }) {
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  const chatsQ = useQuery({
+    queryKey: qk.applicationChats(appId),
+    queryFn: () =>
+      api.get<{ chats: ApplicationChat[] }>(`/api/applications/${appId}/chats`),
+    refetchInterval: 30_000,
+  });
+
+  const messagesQ = useQuery({
+    queryKey: qk.applicationChatMessages(appId, selectedChatId ?? ""),
+    queryFn: () =>
+      api.get<{ messages: ApplicationMessage[] }>(
+        `/api/applications/${appId}/chats/${selectedChatId}`,
+      ),
+    enabled: !!selectedChatId,
+  });
+
+  const chats = chatsQ.data?.chats ?? [];
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  if (chatsQ.isLoading) {
+    return <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Loading chats…</div>;
+  }
+
+  if (chats.length === 0) {
+    return (
+      <div className="text-xs italic" style={{ color: "var(--kode-text-muted)" }}>
+        No chat messages yet. Start a Telegram conversation with this app to see history here.
+      </div>
+    );
+  }
+
+  const selectedChat = chats.find((c) => c.chat_id === selectedChatId) ?? null;
+
+  return (
+    <div className="flex gap-3" style={{ minHeight: 320 }}>
+      {/* Chat list */}
+      <div
+        className="flex flex-col gap-1 overflow-y-auto shrink-0"
+        style={{ width: 220, maxHeight: 400, borderRight: "1px solid var(--kode-border)", paddingRight: 8 }}
+      >
+        {chats.map((c) => (
+          <button
+            key={c.chat_id}
+            onClick={() => setSelectedChatId(c.chat_id)}
+            className="text-left rounded px-2 py-2 text-xs"
+            style={{
+              background: selectedChatId === c.chat_id ? "var(--kode-bg-selected, var(--kode-bg-dark))" : "transparent",
+              border: "1px solid " + (selectedChatId === c.chat_id ? "var(--kode-info)" : "var(--kode-border)"),
+              cursor: "pointer",
+            }}
+          >
+            <div className="font-mono truncate" style={{ color: "var(--kode-text-primary)" }} title={c.chat_id}>
+              {c.chat_id}
+            </div>
+            <div className="mt-0.5 truncate" style={{ color: "var(--kode-text-muted)" }}>
+              {c.last_preview || "(no preview)"}
+            </div>
+            <div className="mt-0.5 flex justify-between" style={{ color: "var(--kode-text-muted)" }}>
+              <span>{c.message_count} msgs</span>
+              <span>{formatDate(c.last_at)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Message thread */}
+      <div className="flex-1 overflow-y-auto" style={{ maxHeight: 400 }}>
+        {!selectedChatId && (
+          <div className="text-xs italic" style={{ color: "var(--kode-text-muted)" }}>
+            Select a chat to view messages.
+          </div>
+        )}
+        {selectedChatId && messagesQ.isLoading && (
+          <div className="text-xs" style={{ color: "var(--kode-text-muted)" }}>Loading messages…</div>
+        )}
+        {selectedChatId && messagesQ.data && (
+          <div className="flex flex-col gap-2">
+            {messagesQ.data.messages.map((m) => (
+              <div
+                key={m.id}
+                className="flex"
+                style={{ justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}
+              >
+                <div
+                  className="rounded px-3 py-2 text-xs"
+                  style={{
+                    maxWidth: "80%",
+                    background: m.role === "user" ? "var(--kode-info)" : "var(--kode-bg-dark)",
+                    color: m.role === "user" ? "#fff" : "var(--kode-text-primary)",
+                    border: m.role === "assistant" ? "1px solid var(--kode-border)" : "none",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {m.content}
+                  <div
+                    className="mt-1 text-right"
+                    style={{ fontSize: 10, opacity: 0.7 }}
+                  >
+                    {formatDate(m.created_at)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
