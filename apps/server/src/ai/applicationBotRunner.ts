@@ -30,12 +30,12 @@ import { listApplications } from "../db/repos/applications.js";
 import { ensureAppMigrated } from "./appDatabase.js";
 import { logger } from "../util/logger.js";
 
-function saveMessage(databaseUrl: string, chatId: string, role: "user" | "assistant", content: string): Promise<void> {
+function saveMessage(databaseUrl: string, chatId: string, role: "user" | "assistant", content: string): void {
   const sql = makeSql(databaseUrl);
-  return sql(
+  sql(
     "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1, $2, $3)",
     [chatId, role, content],
-  ).then(() => {}).catch(() => {});
+  ).catch(() => {});
 }
 
 type HookCtx = { databaseUrl: string; geminiApiKey: string | null; geminiModel: string | null };
@@ -95,6 +95,9 @@ function makeHandler(
     if (!chatId) return;
     if (targetChatId && chatId !== targetChatId) return;
 
+    // Save user message immediately on receipt, before any processing.
+    saveMessage(databaseUrl, chatId, "user", text);
+
     let mod: HookModule;
     try {
       mod = (await import(
@@ -114,7 +117,6 @@ function makeHandler(
       const cmd = slashMatch[1] ?? "";
       const args = slashMatch[2] ?? "";
       try {
-        await saveMessage(databaseUrl, chatId, "user", text);
         const reply = await mod.handleSlashCommand(cmd, args, chatId, ctx);
         await msg.reply({ message: reply });
         saveMessage(databaseUrl, chatId, "assistant", reply);
@@ -141,7 +143,6 @@ function makeHandler(
         typeof mod.getContext === "function"
           ? await mod.getContext(chatId, ctx)
           : "";
-      await saveMessage(databaseUrl, chatId, "user", text);
       const model = ai.getGenerativeModel({ model: config.GEMINI_MODEL });
       const result = await model.generateContent({
         systemInstruction:
