@@ -30,12 +30,12 @@ import { listApplications } from "../db/repos/applications.js";
 import { ensureAppMigrated } from "./appDatabase.js";
 import { logger } from "../util/logger.js";
 
-function saveMessage(databaseUrl: string, chatId: string, role: "user" | "assistant", content: string): void {
+function saveMessage(databaseUrl: string, chatId: string, role: "user" | "assistant", content: string): Promise<void> {
   const sql = makeSql(databaseUrl);
-  sql(
+  return sql(
     "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1, $2, $3)",
     [chatId, role, content],
-  ).catch(() => {});
+  ).then(() => {}).catch(() => {});
 }
 
 type HookCtx = { databaseUrl: string; geminiApiKey: string | null; geminiModel: string | null };
@@ -114,9 +114,9 @@ function makeHandler(
       const cmd = slashMatch[1] ?? "";
       const args = slashMatch[2] ?? "";
       try {
+        await saveMessage(databaseUrl, chatId, "user", text);
         const reply = await mod.handleSlashCommand(cmd, args, chatId, ctx);
         await msg.reply({ message: reply });
-        saveMessage(databaseUrl, chatId, "user", text);
         saveMessage(databaseUrl, chatId, "assistant", reply);
       } catch (err) {
         logger.warn("applicationBotRunner: slash error", {
@@ -141,6 +141,7 @@ function makeHandler(
         typeof mod.getContext === "function"
           ? await mod.getContext(chatId, ctx)
           : "";
+      await saveMessage(databaseUrl, chatId, "user", text);
       const model = ai.getGenerativeModel({ model: config.GEMINI_MODEL });
       const result = await model.generateContent({
         systemInstruction:
@@ -167,7 +168,6 @@ function makeHandler(
       reply = reply.replace(CALL_RE, "").replace(/\n{3,}/g, "\n\n").trim();
       const finalReply = reply || "No response generated.";
       await msg.reply({ message: finalReply });
-      saveMessage(databaseUrl, chatId, "user", text);
       saveMessage(databaseUrl, chatId, "assistant", finalReply);
     } catch (err) {
       logger.warn("applicationBotRunner: LLM error", { appId, err: String(err) });
