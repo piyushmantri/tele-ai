@@ -26,7 +26,6 @@ import {
   saveFileLocally,
 } from "../../db/repos/applicationFiles.js";
 import { listKundaliMatches } from "../../db/repos/kundaliMatches.js";
-import { listAppChats, listChatMessages } from "../../db/repos/applicationMessages.js";
 import { ensureAppMigrated } from "../../ai/appDatabase.js";
 import {
   createRegistryRow,
@@ -972,17 +971,48 @@ export async function registerApplicationRoutes(
 
   app.get("/api/applications/:id/chats", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const app = await getApplication(id);
-    if (!app) { reply.code(404); return { error: "Not found" }; }
-    const chats = await listAppChats(id);
-    return { chats };
+    const application = await getApplication(id);
+    if (!application?.database_url) { reply.code(404); return { chats: [] }; }
+    try {
+      const sql = makeSql(application.database_url);
+      const chats = await sql(
+        `SELECT
+           chat_id AS tg_chat_id,
+           COUNT(*)::int AS message_count,
+           MAX(created_at) AS last_at,
+           LEFT(
+             (SELECT content FROM chat_messages m2
+              WHERE m2.chat_id = m.chat_id ORDER BY created_at DESC LIMIT 1),
+             120
+           ) AS last_preview
+         FROM chat_messages m
+         GROUP BY chat_id
+         ORDER BY MAX(created_at) DESC`,
+        [],
+      );
+      return { chats };
+    } catch {
+      return { chats: [] };
+    }
   });
 
   app.get("/api/applications/:id/chats/:tgChatId", async (req, reply) => {
     const { id, tgChatId } = req.params as { id: string; tgChatId: string };
     const application = await getApplication(id);
-    if (!application) { reply.code(404); return { error: "Not found" }; }
-    const messages = await listChatMessages(id, tgChatId);
-    return { messages };
+    if (!application?.database_url) { reply.code(404); return { error: "Not found" }; }
+    try {
+      const sql = makeSql(application.database_url);
+      const messages = await sql(
+        `SELECT id, chat_id AS tg_chat_id, role, content, created_at
+         FROM chat_messages
+         WHERE chat_id = $1
+         ORDER BY created_at ASC`,
+        [tgChatId],
+      );
+      return { messages };
+    } catch {
+      reply.code(500);
+      return { error: "Failed to query app database" };
+    }
   });
 }
