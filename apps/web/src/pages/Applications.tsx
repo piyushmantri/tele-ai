@@ -179,11 +179,18 @@ export default function Applications() {
             ))}
           </div>
         </div>
-        {tab === "installed" && (
-          <Button variant="filled" onClick={() => setShowAdd((s) => !s)}>
-            {showAdd ? "Cancel" : "+ Add application"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Link to="/applications/docs">
+            <Button variant="ghost" size="sm">
+              Docs
+            </Button>
+          </Link>
+          {tab === "installed" && (
+            <Button variant="filled" onClick={() => setShowAdd((s) => !s)}>
+              {showAdd ? "Cancel" : "+ Add application"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <p className="mb-4 max-w-2xl text-xs" style={{ color: "var(--kode-text-muted)" }}>
