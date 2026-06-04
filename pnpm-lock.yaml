@@ -71,6 +71,9 @@ importers:
       telegram:
         specifier: ^2.26.6
         version: 2.26.22
+      tsx:
+        specifier: ^4.19.1
+        version: 4.21.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -81,9 +84,6 @@ importers:
       '@types/node-cron':
         specifier: ^3.0.11
         version: 3.0.11
-      tsx:
-        specifier: ^4.19.1
-        version: 4.21.0
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -99,6 +99,9 @@ importers:
       kodeui:
         specifier: workspace:*
         version: link:../../vendor/kodeui
+      marked:
+        specifier: ^18.0.4
+        version: 18.0.4
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -1890,6 +1893,11 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==, tarball: https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz}
+
+  marked@18.0.4:
+    resolution: {integrity: sha512-c/BTaKzg0G6ezQx97DAkYU7k0HM6ys0FqYeKBL6hlBByZwy+ycA1+f0vDdjMHKKeEjdgkx0GOv9Il6D+85cOqA==, tarball: https://registry.npmjs.org/marked/-/marked-18.0.4.tgz}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==, tarball: https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz}
@@ -4440,6 +4448,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  marked@18.0.4: {}
 
   math-intrinsics@1.1.0: {}
 
