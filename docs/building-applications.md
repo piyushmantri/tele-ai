@@ -350,7 +350,7 @@ when the bot boots.
 ## Appendix: external example app
 
 `counseller` is a fuller, externally-installable app that lives **outside this
-repo** (at the sibling path `~/spaps/counseller`). It is referenced here only as
+repo** (at <https://github.com/piyushmantri/admission-counsellor>). It is referenced here only as
 an example of a complete app with its own migrations and standalone-bot setup.
 Because it is out-of-tree, none of its code is verifiable from this repo — treat
 the in-repo source citations above as authoritative and counseller as
