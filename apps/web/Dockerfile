@@ -15,6 +15,7 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     rm pnpm-lock.yaml && \
     pnpm install --ignore-scripts
 COPY apps/web/ apps/web/
+COPY docs/ docs/
 RUN pnpm --filter @tele/shared build && pnpm --filter @tele/web build
 
 FROM nginx:alpine
