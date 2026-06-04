@@ -18,6 +18,7 @@ import Bots from "./pages/Bots";
 import Metrics from "./pages/Metrics";
 import Applications from "./pages/Applications";
 import ApplicationDetail from "./pages/ApplicationDetail";
+import Docs from "./pages/Docs";
 
 export default function App() {
   const loc = useLocation();
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/mcp" element={<MCPServers />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/applications" element={<Applications />} />
+            <Route path="/applications/docs" element={<Docs />} />
             <Route path="/applications/:id" element={<ApplicationDetail />} />
             <Route path="/slash-commands" element={<SlashCommands />} />
             <Route path="/bots" element={<Bots />} />
