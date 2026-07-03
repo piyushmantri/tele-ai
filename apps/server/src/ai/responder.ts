@@ -153,8 +153,9 @@ export async function generateAndReply(
   logger.info("calling gemini", { chat: chat.id, model: settings.gemini_model, messages: contents.length });
 
   let text: string;
+  let repliedViaTools = false;
   try {
-    text = await runToolLoop({ model, contents, registry, chatId: chat.id });
+    ({ text, repliedViaTools } = await runToolLoop({ model, contents, registry, chatId: chat.id }));
     logger.info("gemini replied", { chat: chat.id, length: text.length });
   } catch (err) {
     incCounter("responder.error");
@@ -179,12 +180,14 @@ export async function generateAndReply(
 
   if (!text) {
     incCounter("responder.empty_reply_skipped");
-    const fallback = "Sorry, I wasn't able to find what you were looking for.";
-    if (opts?.replyAdapter) {
-      await opts.replyAdapter.sendText(fallback);
-      await opts.replyAdapter.persistOutbound(fallback, null);
-    } else {
-      await sendReply(chat, fallback, "ai");
+    if (!repliedViaTools) {
+      const fallback = "Sorry, I wasn't able to find what you were looking for.";
+      if (opts?.replyAdapter) {
+        await opts.replyAdapter.sendText(fallback);
+        await opts.replyAdapter.persistOutbound(fallback, null);
+      } else {
+        await sendReply(chat, fallback, "ai");
+      }
     }
     return;
   }

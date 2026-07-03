@@ -134,13 +134,16 @@ async function generateWithRetry(model: GenerativeModel, contents: Content[]): P
   throw lastErr;
 }
 
+const REPLY_TOOLS = new Set(["send_file", "send_message"]);
+
 export async function runToolLoop(opts: {
   model: GenerativeModel;
   contents: Content[];
   registry: Map<string, ToolDef>;
   chatId: string;
-}): Promise<string> {
+}): Promise<{ text: string; repliedViaTools: boolean }> {
   let { contents } = opts;
+  let repliedViaTools = false;
   for (let iter = 0; iter < MAX_LOOP_ITERATIONS; iter++) {
     const result = await generateWithRetry(opts.model, contents);
     const candidate = result.response.candidates?.[0];
@@ -155,7 +158,7 @@ export async function runToolLoop(opts: {
         .map((p) => (typeof (p as { text?: unknown }).text === "string" ? (p as { text: string }).text : ""))
         .join("")
         .trim();
-      return text;
+      return { text, repliedViaTools };
     }
 
     contents = [
@@ -197,6 +200,7 @@ export async function runToolLoop(opts: {
       eventBus.emit({ type: "tool:invoked", payload: { entry } });
       logger.info("tool invoked", { tool: fc.functionCall.name, ok });
       incCounter("tool.invoked." + fc.functionCall.name + (ok ? ".ok" : ".err"));
+      if (ok && REPLY_TOOLS.has(fc.functionCall.name)) repliedViaTools = true;
       responseParts.push({
         functionResponse: { name: fc.functionCall.name, response: toolResult as never },
       });
@@ -207,5 +211,5 @@ export async function runToolLoop(opts: {
       { role: "user", parts: responseParts as never },
     ];
   }
-  return "";
+  return { text: "", repliedViaTools };
 }
