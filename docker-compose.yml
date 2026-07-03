@@ -41,13 +41,21 @@ services:
     command:
       - "storage_broker"
       - "--listen-addr=0.0.0.0:50051"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --max-time 2 -s http://localhost:50051 > /dev/null 2>&1; test $? -ne 7"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   safekeeper1:
     image: ghcr.io/neondatabase/neon:latest
     restart: always
     depends_on:
-      - storage_broker
-      - minio_create_buckets
+      storage_broker:
+        condition: service_healthy
+      minio_create_buckets:
+        condition: service_completed_successfully
     environment:
       SAFEKEEPER_ADVERTISE_URL: safekeeper1:5454
       SAFEKEEPER_ID: 1
@@ -69,13 +77,21 @@ services:
                                         prefix_in_bucket='/safekeeper/'}\""
     volumes:
       - safekeeper1_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:7676/v1/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
 
   safekeeper2:
     image: ghcr.io/neondatabase/neon:latest
     restart: always
     depends_on:
-      - storage_broker
-      - minio_create_buckets
+      storage_broker:
+        condition: service_healthy
+      minio_create_buckets:
+        condition: service_completed_successfully
     environment:
       SAFEKEEPER_ADVERTISE_URL: safekeeper2:5454
       SAFEKEEPER_ID: 2
@@ -97,13 +113,21 @@ services:
                                         prefix_in_bucket='/safekeeper/'}\""
     volumes:
       - safekeeper2_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:7676/v1/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
 
   safekeeper3:
     image: ghcr.io/neondatabase/neon:latest
     restart: always
     depends_on:
-      - storage_broker
-      - minio_create_buckets
+      storage_broker:
+        condition: service_healthy
+      minio_create_buckets:
+        condition: service_completed_successfully
     environment:
       SAFEKEEPER_ADVERTISE_URL: safekeeper3:5454
       SAFEKEEPER_ID: 3
@@ -125,13 +149,21 @@ services:
                                         prefix_in_bucket='/safekeeper/'}\""
     volumes:
       - safekeeper3_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:7676/v1/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
 
   pageserver:
     image: ghcr.io/neondatabase/neon:latest
     restart: always
     depends_on:
-      - storage_broker
-      - minio_create_buckets
+      storage_broker:
+        condition: service_healthy
+      minio_create_buckets:
+        condition: service_completed_successfully
     environment:
       AWS_ACCESS_KEY_ID: minio
       AWS_SECRET_ACCESS_KEY: password
@@ -140,6 +172,12 @@ services:
     volumes:
       - pageserver_data:/data
       - ./infra/neon/pageserver_config:/data/.neon
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9898/v1/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
 
   compute1:
     build:
@@ -151,10 +189,14 @@ services:
     image: tele-built-compute
     restart: always
     depends_on:
-      - safekeeper1
-      - safekeeper2
-      - safekeeper3
-      - pageserver
+      safekeeper1:
+        condition: service_healthy
+      safekeeper2:
+        condition: service_healthy
+      safekeeper3:
+        condition: service_healthy
+      pageserver:
+        condition: service_healthy
     environment:
       PG_VERSION: "16"
       TENANT_ID: ""
@@ -274,8 +316,11 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+    restart: always
     depends_on:
       compute1:
+        condition: service_healthy
+      influxdb:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://cloud_admin:cloud_admin@compute1:55433/postgres
@@ -300,11 +345,18 @@ services:
       - /Users/piyush.mantri:/Users/piyush.mantri:ro
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    restart: always
     depends_on:
       server:
         condition: service_healthy
