@@ -7,8 +7,9 @@ import { getChatById } from "../../db/repos/chats.js";
 import { sendFile } from "../../telegram/sender.js";
 
 function expandPath(input: string): string {
+  const home = config.HOST_HOME_DIR || homedir();
   const expanded = input.startsWith("~/") || input === "~"
-    ? join(homedir(), input.slice(1))
+    ? join(home, input.slice(1))
     : input;
   return isAbsolute(expanded) ? normalize(expanded) : resolve(config.WORKSPACE_ROOT, expanded);
 }

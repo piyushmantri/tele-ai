@@ -332,6 +332,7 @@ services:
       PORT: 3000
       WORKSPACE_ROOT: /data/workspace
       SESSION_FILE: /data/session.txt
+      HOST_HOME_DIR: /Users/piyush.mantri
       INFLUXDB_URL: http://influxdb:8086
       INFLUXDB_TOKEN: local-dev-token
       INFLUXDB_ORG: tele

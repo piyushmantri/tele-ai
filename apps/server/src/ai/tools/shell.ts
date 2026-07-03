@@ -45,7 +45,8 @@ export const runShell: ToolDef = {
     }
 
     return await new Promise((resolve) => {
-      const child = spawn("zsh", ["-c", command], {
+      const shell = process.env.SHELL ?? "sh";
+      const child = spawn(shell, ["-c", command], {
         cwd: cwd || undefined,
         timeout: timeoutMs,
         env: process.env,

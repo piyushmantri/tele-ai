@@ -1,4 +1,6 @@
 import type { Chat, Settings } from "@tele/shared";
+import { config } from "../config.js";
+import { homedir } from "node:os";
 
 export function buildSystemInstruction(opts: {
   chat: Chat;
@@ -15,6 +17,7 @@ Persona: ${opts.settings.persona}
 
 You are currently chatting with: ${contactName}${opts.chat.username ? ` (@${opts.chat.username})` : ""}.
 Current time (UTC): ${new Date().toISOString()}.
+User's home directory: ${config.HOST_HOME_DIR || homedir()} (use this as ~ when browsing files).
 
 You have access to the following machine tools, callable via function calling:
 ${opts.toolsSummary}

@@ -20,6 +20,7 @@ const schema = z.object({
   DASHBOARD_PASSWORD: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
   WORKSPACE_ROOT: z.string().min(1),
+  HOST_HOME_DIR: z.string().default(""),
   SESSION_FILE: z.string().default("data/session.txt"),
   INFLUXDB_URL: z.string().url().optional(),
   INFLUXDB_TOKEN: z.string().min(1).optional(),
