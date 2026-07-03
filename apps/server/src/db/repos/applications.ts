@@ -182,10 +182,8 @@ export async function getActiveApplicationsForChat(
   chatId: string,
 ): Promise<Application[]> {
   return query<Application>(
-    `SELECT ${COLS.split(", ")
-      .map((c) => `a.${c}`)
-      .join(", ")}
-     FROM applications a
+    `SELECT ${COLS}
+     FROM ${FROM}
      WHERE a.enabled = TRUE
        AND (
          a.is_global_default = TRUE

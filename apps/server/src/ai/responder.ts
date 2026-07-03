@@ -179,6 +179,13 @@ export async function generateAndReply(
 
   if (!text) {
     incCounter("responder.empty_reply_skipped");
+    const fallback = "Sorry, I wasn't able to find what you were looking for.";
+    if (opts?.replyAdapter) {
+      await opts.replyAdapter.sendText(fallback);
+      await opts.replyAdapter.persistOutbound(fallback, null);
+    } else {
+      await sendReply(chat, fallback, "ai");
+    }
     return;
   }
 

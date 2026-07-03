@@ -297,6 +297,7 @@ services:
       - tele_data:/app/data
       - /Users/piyush.mantri/spaps/kundali:/apps/kundali
       - /Users/piyush.mantri/spaps/counseller:/apps/counseller:ro
+      - /Users/piyush.mantri:/Users/piyush.mantri:ro
     ports:
       - "3000:3000"
 
